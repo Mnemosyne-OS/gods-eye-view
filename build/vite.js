@@ -25,9 +25,9 @@ export const BROWSER_CSP = [
   "script-src 'self' 'unsafe-eval' blob: https://www.youtube.com https://connect.facebook.net https://platform.twitter.com https://maps.googleapis.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' blob: https:",
-  "connect-src 'self' blob: data: https: wss: ws:",
+  "img-src 'self' data: blob: https: http:",
+  "media-src 'self' blob: https: http:",
+  "connect-src 'self' blob: data: https: http: wss: ws:",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   // The same media's players and posts, which load in frames.
@@ -36,12 +36,10 @@ export const BROWSER_CSP = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
 ].join('; ');
 
 /** Response headers shared by the dev and preview servers. */
 export const BROWSER_HEADERS = Object.freeze({
-  'X-Frame-Options': 'DENY',
   'Content-Security-Policy': BROWSER_CSP,
   // Responses are only ever used as the type the server declares.
   'X-Content-Type-Options': 'nosniff',
@@ -55,7 +53,7 @@ export function createBrowserViteConfig({
   cesiumToken,
   mapillaryToken,
   host = 'localhost',
-  port = 4173,
+  port = 5239,
   allowedHosts = DEFAULT_ALLOWED_HOSTS,
   command,
 } = {}) {
@@ -88,7 +86,7 @@ export function createBrowserViteConfig({
     },
     server: {
       host: host || 'localhost',
-      port: parseInt(port, 10) || 4173,
+      port: parseInt(port, 10) || 5239,
       // A wildcard bind only chooses interfaces; it never disables Vite's
       // Host-header check. LAN hostnames are added explicitly (see
       // build/allowedHosts.js); IP addresses are always accepted.

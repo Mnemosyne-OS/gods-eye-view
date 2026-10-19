@@ -1,0 +1,418 @@
+{
+  "id": "@mnemosyne-plugins/mnemo-gods-eye-view",
+  "name": "@mnemosyne-plugins/mnemo-gods-eye-view",
+  "displayName": "God's Eye View",
+  "version": "0.2.2",
+  "category": "Intelligence",
+  "vendor": "Bilawal Sidhu (MIT)",
+  "license": "MIT",
+  "description": "God's Eye View by Bilawal Sidhu — Real-time 3D intelligence console for planet Earth (CesiumJS, live ADS-B Flight Radar, 4,000+ live CCTV Webcams, AIS Vessels, CelesTrak Satellites, World Radio & Optical Shaders), integrated with Mnemosyne OS.",
+  "descriptionI18n": {
+    "en": "God's Eye View by Bilawal Sidhu — Real-time 3D intelligence console for planet Earth (CesiumJS, live ADS-B Flight Radar, 4,000+ live CCTV Webcams, AIS Vessels, CelesTrak Satellites, World Radio & Optical Shaders), integrated with Mnemosyne OS.",
+    "fr": "God's Eye View par Bilawal Sidhu : une console 3D en temps réel de la planète (CesiumJS), avec les avions en direct (ADS-B), plus de 4 000 webcams, les navires (AIS), les satellites (CelesTrak), les radios du monde et des filtres d'image, reliée à Mnemosyne OS.",
+    "es": "God's Eye View de Bilawal Sidhu: una consola 3D en tiempo real del planeta (CesiumJS), con aviones en directo (ADS-B), más de 4000 webcams, barcos (AIS), satélites (CelesTrak), radios del mundo y filtros de imagen, conectada a Mnemosyne OS."
+  },
+  "keywords": [
+    "globe",
+    "map",
+    "flights",
+    "aircraft",
+    "ships",
+    "satellites",
+    "webcams",
+    "earthquakes",
+    "radio",
+    "globe 3D",
+    "carte",
+    "avions",
+    "navires",
+    "satellites",
+    "séismes",
+    "mapa",
+    "aviones",
+    "barcos",
+    "satélites",
+    "terremotos"
+  ],
+  "icon": "icon.svg",
+  "entrypoints": {
+    "renderer": "http://localhost:5239/index.html"
+  },
+  "widgets": [
+    {
+      "id": "mnemo-argus-main",
+      "icon": "🌐",
+      "name": "God's Eye View",
+      "route": "index.html",
+      "defaultWidth": 1360,
+      "defaultHeight": 860
+    }
+  ],
+  "permissions": [
+    "vault:read",
+    "vault:write"
+  ],
+  "ui": {
+    "locations": [
+      "sidebar",
+      "desktop-icon"
+    ],
+    "label": "God's Eye View",
+    "defaultWindow": {
+      "width": 1360,
+      "height": 860,
+      "minWidth": 960,
+      "minHeight": 640
+    },
+    "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><ellipse cx=\"12\" cy=\"12\" rx=\"9\" ry=\"3.8\"/><path d=\"M12 3a14 14 0 0 1 0 18\"/><path d=\"M12 3a14 14 0 0 0 0 18\"/><circle cx=\"12\" cy=\"12\" r=\"2.4\" fill=\"currentColor\"/></svg>",
+    "tooltip": "God's Eye View — Real-time 3D Globe, ADS-B Flight Radar, Live CCTV, Satellites & Shaders"
+  },
+  "agentGuide": [
+    "Use flyTo to fly the 3D globe camera to a city preset (nyc, london, tokyo, paris, sf, dubai, dc, austin) or any place query.",
+    "Use setLayers to enable or disable live OSINT feeds (flights, military, cctv, satellites, ais-live-vessels, submarine-cables, earthquakes, firms, weather, wind, radio).",
+    "Use controlCctv with action 'nearest', 'next', or 'select' to open a live CCTV camera stream and 3D viewshed cone.",
+    "Use setOptics to switch the post-processing shader (normal, retro, surveillance, thermal, noir, anime, snow).",
+    "Submarine cables require user acceptance of the CC BY-NC-SA 3.0 license via acceptLicensePack."
+  ],
+  "agentActions": [
+    {
+      "id": "status",
+      "summary": "Read active 3D globe state, enabled live layers, optics shader, tracked entity, and CC BY-NC license status.",
+      "effect": "read",
+      "params": {}
+    },
+    {
+      "id": "flyTo",
+      "summary": "Fly the 3D globe camera to a city preset ('nyc', 'london', 'tokyo', 'paris', 'sf', 'dubai', 'dc', 'austin') or any place query.",
+      "effect": "write",
+      "params": {
+        "locationId": {
+          "type": "string",
+          "description": "City preset: nyc, london, tokyo, paris, sf, dubai, dc, austin",
+          "maxLength": 60
+        },
+        "query": {
+          "type": "string",
+          "description": "Free-text place or landmark query (e.g. Manhattan, Strait of Hormuz, Shibuya)",
+          "maxLength": 120
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Optional latitude (-90 to 90)",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Optional longitude (-180 to 180)",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "rangeM": {
+          "type": "number",
+          "description": "Optional camera range in meters",
+          "minimum": 200,
+          "maximum": 30000000
+        }
+      }
+    },
+    {
+      "id": "setLayers",
+      "summary": "Enable or disable live OSINT layers (flights, military, cctv, satellites, ais-live-vessels, submarine-cables, earthquakes, firms, weather, wind, radio).",
+      "effect": "write",
+      "params": {
+        "layerId": {
+          "type": "string",
+          "description": "Layer ID to toggle (flights, military, cctv, satellites, ais-live-vessels, submarine-cables, earthquakes, firms, weather, wind, radio, traffic, transit)",
+          "maxLength": 60
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "True to enable (default), false to disable"
+        }
+      },
+      "required": [
+        "layerId"
+      ]
+    },
+    {
+      "id": "setOptics",
+      "summary": "Switch the post-processing optical shader (normal, retro, surveillance, thermal, noir, anime, snow).",
+      "effect": "write",
+      "params": {
+        "style": {
+          "type": "string",
+          "description": "Optical mode: normal, retro, surveillance, thermal, noir, anime, snow",
+          "enum": [
+            "normal",
+            "retro",
+            "surveillance",
+            "thermal",
+            "noir",
+            "anime",
+            "snow",
+            "crt",
+            "nvg",
+            "flir"
+          ]
+        }
+      },
+      "required": [
+        "style"
+      ]
+    },
+    {
+      "id": "controlCctv",
+      "summary": "Control live CCTV webcam feeds and 3D viewshed cones (enable, disable, nearest, next, prev, select, focus, viewshed, projection, autohop).",
+      "effect": "write",
+      "params": {
+        "action": {
+          "type": "string",
+          "description": "CCTV action",
+          "enum": [
+            "enable",
+            "disable",
+            "nearest",
+            "next",
+            "prev",
+            "select",
+            "focus",
+            "coverage",
+            "viewshed",
+            "projection",
+            "autohop"
+          ]
+        },
+        "cameraQuery": {
+          "type": "string",
+          "description": "Camera name or road query when action is select",
+          "maxLength": 120
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Optional toggle state for viewshed, projection, or autohop"
+        }
+      },
+      "required": [
+        "action"
+      ]
+    },
+    {
+      "id": "controlRadio",
+      "summary": "Control global live internet radio (enable, disable, play, pause, next, previous, select, status).",
+      "effect": "write",
+      "params": {
+        "action": {
+          "type": "string",
+          "description": "Radio action",
+          "enum": [
+            "enable",
+            "disable",
+            "play",
+            "resume",
+            "pause",
+            "stop",
+            "next",
+            "previous",
+            "select",
+            "status"
+          ]
+        },
+        "stationQuery": {
+          "type": "string",
+          "description": "Station or city query",
+          "maxLength": 120
+        }
+      },
+      "required": [
+        "action"
+      ]
+    },
+    {
+      "id": "selectNearestAircraft",
+      "summary": "Lock onto the nearest live civil or military aircraft on the 3D radar.",
+      "effect": "write",
+      "params": {
+        "layerId": {
+          "type": "string",
+          "description": "Aircraft feed",
+          "enum": [
+            "flights",
+            "military"
+          ]
+        },
+        "locationId": {
+          "type": "string",
+          "description": "Optional city preset ID",
+          "maxLength": 60
+        }
+      }
+    },
+    {
+      "id": "trackEntity",
+      "summary": "Track a specific aircraft callsign, satellite, or vessel by query, or stop tracking.",
+      "effect": "write",
+      "params": {
+        "query": {
+          "type": "string",
+          "description": "Callsign, hex, vessel, or satellite name (e.g. ISS)",
+          "maxLength": 120
+        },
+        "layerId": {
+          "type": "string",
+          "description": "Optional layer hint (flights, military, satellites, ais-live-vessels)",
+          "maxLength": 60
+        },
+        "stop": {
+          "type": "boolean",
+          "description": "True to stop tracking"
+        }
+      }
+    },
+    {
+      "id": "controlCockpit",
+      "summary": "Enter or exit 3D first-person Cockpit mode aboard a live aircraft.",
+      "effect": "write",
+      "params": {
+        "action": {
+          "type": "string",
+          "description": "Cockpit action",
+          "enum": [
+            "enter",
+            "exit",
+            "next",
+            "previous",
+            "status"
+          ]
+        },
+        "targetLayer": {
+          "type": "string",
+          "description": "flights or military",
+          "enum": [
+            "flights",
+            "military"
+          ]
+        }
+      },
+      "required": [
+        "action"
+      ]
+    },
+    {
+      "id": "setCyberSonar",
+      "summary": "Toggle the 3D Cyber Sonar infrastructure pulse overlay.",
+      "effect": "write",
+      "params": {
+        "enabled": {
+          "type": "boolean",
+          "description": "True to enable Cyber Sonar pulse"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    {
+      "id": "showPanel",
+      "summary": "Open or close a HUD panel (cctv-panel, data-panel, radio-panel, control-panel, weather-panel, global-context-panel, scene-panel).",
+      "effect": "write",
+      "params": {
+        "panelId": {
+          "type": "string",
+          "description": "Panel ID to open or close",
+          "enum": [
+            "cctv-panel",
+            "data-panel",
+            "radio-panel",
+            "control-panel",
+            "weather-panel",
+            "global-context-panel",
+            "scene-panel",
+            "location-bar",
+            "pp-toggles"
+          ]
+        },
+        "open": {
+          "type": "boolean",
+          "description": "True to open (default), false to close"
+        }
+      },
+      "required": [
+        "panelId"
+      ]
+    },
+    {
+      "id": "acceptLicensePack",
+      "summary": "Record user acceptance of the CC BY-NC-SA 3.0 license for the 712 TeleGeography Submarine Cables dataset and toggle the layer.",
+      "effect": "write",
+      "params": {
+        "accept": {
+          "type": "boolean",
+          "description": "True to accept and load submarine cables, false to revoke"
+        }
+      }
+    },
+    {
+      "id": "queryMemory",
+      "summary": "Ask the person's Mnemosyne OS memory a question and show the answer inside God's Eye View.",
+      "effect": "read",
+      "params": {
+        "query": {
+          "type": "string",
+          "description": "Search query for Mnemosyne OS memory",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    {
+      "id": "setContextMode",
+      "summary": "Choose what the context overlay follows: off, contacts (aircraft), flights, space-missions or missions.",
+      "effect": "write",
+      "params": {
+        "mode": {
+          "type": "string",
+          "description": "Context overlay mode",
+          "enum": [
+            "off",
+            "contacts",
+            "flights",
+            "space-missions",
+            "missions"
+          ]
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    {
+      "id": "controlScene",
+      "summary": "List, play, stop or step through the saved director scenes.",
+      "effect": "write",
+      "params": {
+        "action": {
+          "type": "string",
+          "description": "Scene action",
+          "enum": [
+            "list",
+            "play",
+            "stop",
+            "next",
+            "status"
+          ]
+        },
+        "sceneId": {
+          "type": "string",
+          "description": "Scene to play (from action 'list')",
+          "maxLength": 120
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  ]
+}
