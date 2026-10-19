@@ -691,10 +691,39 @@ function ensureAgentDoorSubscribed() {
   } catch (err) {
     console.warn('[gods-eye-view] agent door unsubscribe failed:', err);
   }
-  activeSub = registerMnemoAgentDoor();
+  // The agent door needs a cartridge SDK that has onAgentActions. An older SDK
+  // must cost the agent door only, never the globe: this runs before the app
+  // starts, and a throw here left the splash screen up forever.
+  if (typeof sdk.onAgentActions !== 'function') {
+    if (!agentDoorMissingSaid) {
+      agentDoorMissingSaid = true;
+      console.warn('[gods-eye-view] this cartridge SDK has no onAgentActions: the agent door is off');
+    }
+    activeSub = null;
+    return;
+  }
+  try {
+    activeSub = registerMnemoAgentDoor();
+  } catch (err) {
+    activeSub = null;
+    console.warn('[gods-eye-view] agent door registration failed:', err);
+  }
+}
+let agentDoorMissingSaid = false;
+
+/**
+ * Starts the Mnemosyne OS layer. Called by main.js BEFORE the globe app is
+ * created, so it never throws: whatever fails here, the globe still starts.
+ */
+export function initMnemoBridge() {
+  try {
+    startMnemoBridge();
+  } catch (err) {
+    console.error('[gods-eye-view] Mnemosyne OS bridge failed to start; the globe runs without it:', err);
+  }
 }
 
-export function initMnemoBridge() {
+function startMnemoBridge() {
   // Suppress blocking first-run modal so the 3D globe and HUD appear immediately
   try {
     sessionStorage.setItem('gev:first-run-mission-session:v1', '1');
