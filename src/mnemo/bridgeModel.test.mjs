@@ -1,11 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PHRASES, cameraMoved, checkedResult, compactStatus, phrase } from './bridgeModel.js';
+import {
+  PHRASES,
+  cameraMoved,
+  checkedResult,
+  compactStatus,
+  phrase,
+} from './bridgeModel.js';
 
-test('a refused God\'s Eye View answer is thrown, never passed on as done', () => {
-  assert.throws(() => checkedResult({ ok: false, error: 'needs a place' }, 'select_nearest_aircraft'), /needs a place/);
-  assert.throws(() => checkedResult({ ok: false, say: 'Couldn\'t get there.' }, 'x'), /Couldn't get there/);
-  assert.throws(() => checkedResult({ ok: false }, 'fly_to_location'), /fly_to_location failed/);
+test("a refused God's Eye View answer is thrown, never passed on as done", () => {
+  assert.throws(
+    () =>
+      checkedResult(
+        { ok: false, error: 'needs a place' },
+        'select_nearest_aircraft',
+      ),
+    /needs a place/,
+  );
+  assert.throws(
+    () => checkedResult({ ok: false, say: "Couldn't get there." }, 'x'),
+    /Couldn't get there/,
+  );
+  assert.throws(
+    () => checkedResult({ ok: false }, 'fly_to_location'),
+    /fly_to_location failed/,
+  );
   const done = { ok: true, say: 'Flying to Tokyo.' };
   assert.equal(checkedResult(done, 'fly_to_location'), done);
   // No `ok` field is not a refusal: some tools answer a plain value.
@@ -13,9 +32,10 @@ test('a refused God\'s Eye View answer is thrown, never passed on as done', () =
   assert.equal(checkedResult(null, 'x'), null);
 });
 
-test('every bridge sentence exists in the host\'s 7 languages, and an unknown language falls back to English', () => {
+test("every bridge sentence exists in the host's 7 languages, and an unknown language falls back to English", () => {
   for (const [key, table] of Object.entries(PHRASES)) {
-    for (const lang of ['en', 'fr', 'es', 'de', 'pt', 'ru', 'zh']) assert.ok(table[lang], `${key}.${lang}`);
+    for (const lang of ['en', 'fr', 'es', 'de', 'pt', 'ru', 'zh'])
+      assert.ok(table[lang], `${key}.${lang}`);
     assert.equal(phrase(key, 'fr-FR'), table.fr);
     assert.equal(phrase(key, 'ja'), table.en);
     assert.equal(phrase(key, undefined), table.en);
@@ -23,7 +43,10 @@ test('every bridge sentence exists in the host\'s 7 languages, and an unknown la
 });
 
 test('the camera moved only past a metre, and an unknown reading never counts as moved', () => {
-  assert.equal(cameraMoved({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0.5 }), false);
+  assert.equal(
+    cameraMoved({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0.5 }),
+    false,
+  );
   assert.equal(cameraMoved({ x: 0, y: 0, z: 0 }, { x: 0, y: 2, z: 0 }), true);
   assert.equal(cameraMoved(null, { x: 9, y: 9, z: 9 }), false);
   assert.equal(cameraMoved({ x: 9, y: 9, z: 9 }, null), false);
@@ -39,16 +62,39 @@ test('the short status keeps what a person asks about and says when the window i
     tracked: [],
     scenePlayback: { running: false },
     layers: [
-      { id: 'flights', enabled: true, count: 9015, feedState: 'nominal', source: 'OpenSky', lastUpdate: 1 },
+      {
+        id: 'flights',
+        enabled: true,
+        count: 9015,
+        feedState: 'nominal',
+        source: 'OpenSky',
+        lastUpdate: 1,
+      },
       { id: 'satellites', enabled: false, count: 0 },
-      { id: 'local-firms', enabled: true, count: 0, feedState: 'unavailable', error: 'needs a key' },
+      {
+        id: 'local-firms',
+        enabled: true,
+        count: 0,
+        feedState: 'unavailable',
+        error: 'needs a key',
+      },
     ],
     feedProvenance: { huge: 'x'.repeat(5000) },
   };
-  const s = compactStatus(viewState, { count: 12, selected: null }, { submarineCablesCcByNcSa30: false }, 0);
+  const s = compactStatus(
+    viewState,
+    { count: 12, selected: null },
+    { submarineCablesCcByNcSa30: false },
+    0,
+  );
   assert.deepEqual(s.layersOn, [
     { id: 'flights', count: 9015, feedState: 'nominal' },
-    { id: 'local-firms', count: 0, feedState: 'unavailable', error: 'needs a key' },
+    {
+      id: 'local-firms',
+      count: 0,
+      feedState: 'unavailable',
+      error: 'needs a key',
+    },
   ]);
   assert.deepEqual(s.layersOff, ['satellites']);
   assert.equal(s.onScreen, false);

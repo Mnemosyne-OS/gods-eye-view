@@ -31,7 +31,9 @@ export const PHRASES = {
 };
 export function phrase(key, lang = 'en') {
   const table = PHRASES[key];
-  const code = String(lang || 'en').toLowerCase().slice(0, 2);
+  const code = String(lang || 'en')
+    .toLowerCase()
+    .slice(0, 2);
   return table?.[code] || table?.en || '';
 }
 
@@ -68,7 +70,12 @@ export function compactStatus(viewState, entityCtx, licensePacks, fps = null) {
     scenePlaying: viewState?.scenePlayback?.running ?? null,
     layersOn: layers
       .filter((l) => l.enabled)
-      .map((l) => ({ id: l.id, count: l.count ?? null, feedState: l.feedState ?? null, ...(l.error ? { error: l.error } : {}) })),
+      .map((l) => ({
+        id: l.id,
+        count: l.count ?? null,
+        feedState: l.feedState ?? null,
+        ...(l.error ? { error: l.error } : {}),
+      })),
     layersOff: layers.filter((l) => !l.enabled).map((l) => l.id),
     entitiesInView: entityCtx?.count ?? null,
     selected: entityCtx?.selected ?? null,
@@ -76,4 +83,3 @@ export function compactStatus(viewState, entityCtx, licensePacks, fps = null) {
     more: 'status {"full": true} gives the whole state (~19 KB).',
   };
 }
-

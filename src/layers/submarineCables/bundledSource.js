@@ -1,39 +1,18 @@
-// This dataset is CC BY-NC-SA 3.0 (TeleGeography Submarine Cable Map), not the project's MIT license.
-// Rather than bundling NonCommercial data in the repository, Mnemosyne OS Argus fetches it directly
-// from upstream only after the user explicitly accepts the CC BY-NC-SA 3.0 license for personal use.
-
-const UPSTREAM_BASE =
-  'https://raw.githubusercontent.com/bilawalsidhu/gods-eye-view/main/src/data/local_data/telegeography_submarine_cables';
-export const LICENSE_STORAGE_KEY = 'mnemo.argus.licensePacks.v1';
-
-export function isCableLicenseAccepted() {
-  try {
-    const raw = localStorage.getItem(LICENSE_STORAGE_KEY);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    return Boolean(parsed && parsed.cables);
-  } catch {
-    return false;
-  }
-}
-
-export function setCableLicenseAccepted(accepted) {
-  try {
-    const raw = localStorage.getItem(LICENSE_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    parsed.cables = Boolean(accepted);
-    localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(parsed));
-  } catch {
-    /* ignore storage errors */
-  }
-}
-
+// This dataset is CC BY-NC-SA 3.0, not the project's MIT license.
+// Commercial users must remove it or obtain a TeleGeography license.
+// See DATA_SOURCES.md and the bundled dataset's source.json.
+// Resolved when read, so importing this module never needs a module URL.
 function cableUrl() {
-  return `${UPSTREAM_BASE}/cable-geo.json`;
+  return new URL(
+    '../../data/local_data/telegeography_submarine_cables/cable-geo.json',
+    import.meta.url,
+  ).href;
 }
-
 function landingPointUrl() {
-  return `${UPSTREAM_BASE}/landing-point-geo.json`;
+  return new URL(
+    '../../data/local_data/telegeography_submarine_cables/landing-point-geo.json',
+    import.meta.url,
+  ).href;
 }
 
 /** Supply GeoJSON collections without coupling the renderer to asset URLs. */
@@ -56,16 +35,8 @@ export function createBundledCableSource({
     return json;
   }
   return {
-    label: 'TeleGeography (CC BY-NC-SA 3.0)', // i18n-ignore: data provider name
+    label: 'TeleGeography', // i18n-ignore: data provider name
     async fetch(signal) {
-      if (!isCableLicenseAccepted()) {
-        if (typeof window !== 'undefined' && typeof window.__mnemoOpenLicenseModal === 'function') {
-          window.__mnemoOpenLicenseModal('cables');
-        }
-        throw new Error(
-          'TeleGeography Submarine Cables requires user acceptance of the CC BY-NC-SA 3.0 license.',
-        );
-      }
       const [cables, landingPoints] = await Promise.all([
         read(cableUrl(), signal),
         read(landingPointUrl(), signal),

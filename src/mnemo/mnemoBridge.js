@@ -1,10 +1,15 @@
 import { MnemoCartridgeSDK } from '@mnemosyne_os/cartridge-sdk';
 import { voiceLayerAliasMap } from '../voice/layerManifest.js';
-import { cameraMoved, checkedResult, compactStatus, phrase } from './bridgeModel.js';
+import {
+  cameraMoved,
+  checkedResult,
+  compactStatus,
+  phrase,
+} from './bridgeModel.js';
 import {
   isCableLicenseAccepted,
   setCableLicenseAccepted,
-} from '../layers/submarineCables/bundledSource.js';
+} from './cableLicence.js';
 
 // Must equal `name` in mnemo-plugin.json: the host drops every message whose
 // pluginId differs from the id it registered (usePluginBridge.ts).
@@ -15,8 +20,11 @@ const sdk = new MnemoCartridgeSDK('@mnemosyne-plugins/mnemo-gods-eye-view');
  * answer (an inference over the memory), never a list of hits.
  */
 function answerText(result) {
-  if (result?.success === false) throw new Error(result.error || 'Memory did not answer');
-  return String(result?.text ?? result?.response ?? result?.content ?? result?.answer ?? '').trim();
+  if (result?.success === false)
+    throw new Error(result.error || 'Memory did not answer');
+  return String(
+    result?.text ?? result?.response ?? result?.content ?? result?.answer ?? '',
+  ).trim();
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -48,15 +56,24 @@ async function waitForGev(timeoutMs = 30000) {
   let gev = null;
   while (left() > 0) {
     const g = window.__godsEyeView;
-    if (g?.voiceCommands?.runner && g?.dataManager && g?.styleManager) { gev = g; break; }
+    if (g?.voiceCommands?.runner && g?.dataManager && g?.styleManager) {
+      gev = g;
+      break;
+    }
     await sleep(120);
   }
-  if (!gev) throw new Error("God's Eye View is still starting: try again in a few seconds");
+  if (!gev)
+    throw new Error(
+      "God's Eye View is still starting: try again in a few seconds",
+    );
   if (gevSettled) return gev;
 
   const restore = gev.styleManager.initialRestorePromise;
   if (restore && typeof restore.then === 'function') {
-    await Promise.race([restore.catch(() => undefined), sleep(Math.max(0, left()))]);
+    await Promise.race([
+      restore.catch(() => undefined),
+      sleep(Math.max(0, left())),
+    ]);
   }
   // The opening flight: wait for three still readings in a row (600 ms).
   const camera = gev.viewer?.camera;
@@ -66,7 +83,9 @@ async function waitForGev(timeoutMs = 30000) {
     while (left() > 0 && still < 3) {
       const p = camera.positionWC;
       const now = { x: p.x, y: p.y, z: p.z };
-      const moved = last ? Math.hypot(now.x - last.x, now.y - last.y, now.z - last.z) : Infinity;
+      const moved = last
+        ? Math.hypot(now.x - last.x, now.y - last.y, now.z - last.z)
+        : Infinity;
       still = moved < 1 ? still + 1 : 0;
       last = now;
       await sleep(200);
@@ -83,8 +102,19 @@ async function runGevTool(actionName, args = {}) {
 
 /** Normalize city/preset aliases to God's Eye View locationId or search query. */
 function normalizeFlyToArgs(params = {}) {
-  const rawId = String(params.locationId || params.presetId || '').trim().toLowerCase();
-  const KNOWN_IDS = new Set(['austin', 'sf', 'nyc', 'tokyo', 'london', 'paris', 'dubai', 'dc']);
+  const rawId = String(params.locationId || params.presetId || '')
+    .trim()
+    .toLowerCase();
+  const KNOWN_IDS = new Set([
+    'austin',
+    'sf',
+    'nyc',
+    'tokyo',
+    'london',
+    'paris',
+    'dubai',
+    'dc',
+  ]);
   const ALIAS_MAP = {
     'new-york': 'nyc',
     newyork: 'nyc',
@@ -101,7 +131,10 @@ function normalizeFlyToArgs(params = {}) {
       ...(params.rangeM ? { rangeM: Number(params.rangeM) } : {}),
     };
   }
-  if (typeof params.latitude === 'number' && typeof params.longitude === 'number') {
+  if (
+    typeof params.latitude === 'number' &&
+    typeof params.longitude === 'number'
+  ) {
     return {
       latitude: params.latitude,
       longitude: params.longitude,
@@ -109,7 +142,9 @@ function normalizeFlyToArgs(params = {}) {
       ...(params.rangeM ? { rangeM: Number(params.rangeM) } : {}),
     };
   }
-  const query = String(params.query || params.locationId || params.presetId || 'New York').trim();
+  const query = String(
+    params.query || params.locationId || params.presetId || 'New York',
+  ).trim();
   return {
     query,
     viewMode: params.viewMode || 'city',
@@ -123,8 +158,14 @@ const LAYER_ALIASES = voiceLayerAliasMap();
 const CABLES_LAYER_ID = 'telegeography-submarine-cables';
 
 function normalizeLayerId(id) {
-  const clean = String(id || '').trim().toLowerCase();
-  return LAYER_ALIASES.get(clean) || LAYER_ALIASES.get(clean.replace(/[-_]+/g, ' ')) || clean;
+  const clean = String(id || '')
+    .trim()
+    .toLowerCase();
+  return (
+    LAYER_ALIASES.get(clean) ||
+    LAYER_ALIASES.get(clean.replace(/[-_]+/g, ' ')) ||
+    clean
+  );
 }
 
 const OPTICS_ALIAS_MAP = {
@@ -134,7 +175,9 @@ const OPTICS_ALIAS_MAP = {
 };
 
 function normalizeOpticsStyle(style) {
-  const clean = String(style || 'normal').trim().toLowerCase();
+  const clean = String(style || 'normal')
+    .trim()
+    .toLowerCase();
   return OPTICS_ALIAS_MAP[clean] || clean;
 }
 
@@ -159,7 +202,10 @@ function measureFps(ms = 400) {
     let frames = 0;
     let id = 0;
     const t0 = performance.now();
-    const tick = () => { frames++; id = requestAnimationFrame(tick); };
+    const tick = () => {
+      frames++;
+      id = requestAnimationFrame(tick);
+    };
     id = requestAnimationFrame(tick);
     setTimeout(() => {
       cancelAnimationFrame(id);
@@ -174,13 +220,32 @@ function registerMnemoAgentDoor() {
     {
       status: async (params = {}) => {
         const gev = await waitForGev();
-        const viewState = await gev.voiceCommands.runner('get_current_view_state', {});
-        const entityCtx = await gev.voiceCommands.runner('get_entity_context', {});
-        const licensePacks = { submarineCablesCcByNcSa30: isCableLicenseAccepted() };
+        const viewState = await gev.voiceCommands.runner(
+          'get_current_view_state',
+          {},
+        );
+        const entityCtx = await gev.voiceCommands.runner(
+          'get_entity_context',
+          {},
+        );
+        const licensePacks = {
+          submarineCablesCcByNcSa30: isCableLicenseAccepted(),
+        };
         // The full state is ~19 KB (~5,000 tokens) and an agent pays it on every
         // question; the default answers what a person asks about the view.
-        if (params.full === true) return { app: "God's Eye View", viewState, entityContext: entityCtx, licensePacks };
-        return compactStatus(viewState, entityCtx, licensePacks, await measureFps());
+        if (params.full === true)
+          return {
+            app: "God's Eye View",
+            viewState,
+            entityContext: entityCtx,
+            licensePacks,
+          };
+        return compactStatus(
+          viewState,
+          entityCtx,
+          licensePacks,
+          await measureFps(),
+        );
       },
 
       flyTo: async (params = {}) => {
@@ -198,7 +263,9 @@ function registerMnemoAgentDoor() {
           action: 'fly_to_location',
           args,
           result: res,
-          ...(frozen ? { onScreen: false, say: phrase('notOnScreen', hostLang) } : {}),
+          ...(frozen
+            ? { onScreen: false, say: phrase('notOnScreen', hostLang) }
+            : {}),
         };
       },
 
@@ -207,7 +274,11 @@ function registerMnemoAgentDoor() {
         const results = [];
         if (params.layerId) {
           const lid = normalizeLayerId(params.layerId);
-          if (lid === CABLES_LAYER_ID && params.enabled !== false && !isCableLicenseAccepted()) {
+          if (
+            lid === CABLES_LAYER_ID &&
+            params.enabled !== false &&
+            !isCableLicenseAccepted()
+          ) {
             window.__mnemoOpenLicenseModal?.('cables');
             return {
               ok: false,
@@ -227,7 +298,11 @@ function registerMnemoAgentDoor() {
         if (params.layers && typeof params.layers === 'object') {
           for (const [k, v] of Object.entries(params.layers)) {
             const lid = normalizeLayerId(k);
-            if (lid === CABLES_LAYER_ID && Boolean(v) && !isCableLicenseAccepted()) {
+            if (
+              lid === CABLES_LAYER_ID &&
+              Boolean(v) &&
+              !isCableLicenseAccepted()
+            ) {
               window.__mnemoOpenLicenseModal?.('cables');
               continue;
             }
@@ -266,7 +341,9 @@ function registerMnemoAgentDoor() {
       },
 
       setOptics: async (params = {}) => {
-        const style = normalizeOpticsStyle(params.style || params.mode || 'normal');
+        const style = normalizeOpticsStyle(
+          params.style || params.mode || 'normal',
+        );
         const res = await runChecked('set_visual_style', { style });
         return { ok: true, style, result: res };
       },
@@ -275,8 +352,12 @@ function registerMnemoAgentDoor() {
         const action = String(params.action || 'nearest').trim();
         const res = await runChecked('control_cctv', {
           action,
-          ...(params.cameraQuery ? { cameraQuery: String(params.cameraQuery) } : {}),
-          ...(typeof params.enabled === 'boolean' ? { enabled: params.enabled } : {}),
+          ...(params.cameraQuery
+            ? { cameraQuery: String(params.cameraQuery) }
+            : {}),
+          ...(typeof params.enabled === 'boolean'
+            ? { enabled: params.enabled }
+            : {}),
         });
         return { ok: true, action, result: res };
       },
@@ -286,25 +367,39 @@ function registerMnemoAgentDoor() {
         const res = await runChecked('control_radio', {
           action,
           ...(params.category ? { category: String(params.category) } : {}),
-          ...(params.locationId ? { locationId: String(params.locationId) } : {}),
+          ...(params.locationId
+            ? { locationId: String(params.locationId) }
+            : {}),
           ...(params.country ? { country: String(params.country) } : {}),
-          ...(params.stationQuery ? { stationQuery: String(params.stationQuery) } : {}),
-          ...(typeof params.volume === 'number' ? { volume: params.volume } : {}),
+          ...(params.stationQuery
+            ? { stationQuery: String(params.stationQuery) }
+            : {}),
+          ...(typeof params.volume === 'number'
+            ? { volume: params.volume }
+            : {}),
         });
         return { ok: true, action, result: res };
       },
 
       selectNearestAircraft: async (params = {}) => {
         const where = {
-          ...(params.locationId ? { locationId: String(params.locationId) } : {}),
-          ...(params.locationQuery ? { locationQuery: String(params.locationQuery) } : {}),
+          ...(params.locationId
+            ? { locationId: String(params.locationId) }
+            : {}),
+          ...(params.locationQuery
+            ? { locationQuery: String(params.locationQuery) }
+            : {}),
         };
         // No place named: "the nearest aircraft" is the one nearest to what the
         // person is looking at, so the camera is the place.
         if (!where.locationId && !where.locationQuery) {
           const view = await runGevTool('get_current_view_state', {});
           const cam = view?.camera;
-          if (cam && Number.isFinite(cam.latitude) && Number.isFinite(cam.longitude)) {
+          if (
+            cam &&
+            Number.isFinite(cam.latitude) &&
+            Number.isFinite(cam.longitude)
+          ) {
             where.latitude = cam.latitude;
             where.longitude = cam.longitude;
           }
@@ -323,7 +418,9 @@ function registerMnemoAgentDoor() {
         }
         const res = await runChecked('track_entity', {
           query: String(params.query || ''),
-          ...(params.layerId ? { layerId: normalizeLayerId(params.layerId) } : {}),
+          ...(params.layerId
+            ? { layerId: normalizeLayerId(params.layerId) }
+            : {}),
         });
         return { ok: true, result: res };
       },
@@ -332,7 +429,9 @@ function registerMnemoAgentDoor() {
         const action = String(params.action || 'enter').trim();
         const res = await runChecked('control_cockpit', {
           action,
-          ...(params.targetLayer ? { targetLayer: String(params.targetLayer) } : {}),
+          ...(params.targetLayer
+            ? { targetLayer: String(params.targetLayer) }
+            : {}),
         });
         return { ok: true, action, result: res };
       },
@@ -372,12 +471,26 @@ function registerMnemoAgentDoor() {
         if (params.accept === false) {
           setCableLicenseAccepted(false);
           window.__mnemoSyncLicenseUi?.();
-          await runGevTool('set_layer_visibility', { layerId: CABLES_LAYER_ID, enabled: false });
-          return { packId: 'cables', accepted: false, license: 'CC BY-NC-SA 3.0' };
+          await runGevTool('set_layer_visibility', {
+            layerId: CABLES_LAYER_ID,
+            enabled: false,
+          });
+          return {
+            packId: 'cables',
+            accepted: false,
+            license: 'CC BY-NC-SA 3.0',
+          };
         }
         if (isCableLicenseAccepted()) {
-          await runChecked('set_layer_visibility', { layerId: CABLES_LAYER_ID, enabled: true });
-          return { packId: 'cables', accepted: true, license: 'CC BY-NC-SA 3.0' };
+          await runChecked('set_layer_visibility', {
+            layerId: CABLES_LAYER_ID,
+            enabled: true,
+          });
+          return {
+            packId: 'cables',
+            accepted: true,
+            license: 'CC BY-NC-SA 3.0',
+          };
         }
         window.__mnemoOpenLicenseModal?.('cables');
         return {
@@ -390,7 +503,9 @@ function registerMnemoAgentDoor() {
       },
 
       queryMemory: async (params = {}) => {
-        const q = String(params.query || 'geopolitical maritime aviation intelligence').trim();
+        const q = String(
+          params.query || 'geopolitical maritime aviation intelligence',
+        ).trim();
         // `sdk.query` takes the question only: the host decides which vaults
         // answer (the person's attention), and replies with one answer.
         const answer = answerText(await sdk.query(q));
@@ -640,25 +755,31 @@ function mountMnemoHudOverlay() {
       </div>
     `;
     backdrop.classList.add('open');
-    document.getElementById('mnemo-modal-close')?.addEventListener('click', closeModal);
-    document.getElementById('mnemo-license-accept')?.addEventListener('click', async () => {
-      setCableLicenseAccepted(true);
-      syncLicenseUi();
-      closeModal();
-      await runGevTool('set_layer_visibility', {
-        layerId: CABLES_LAYER_ID,
-        enabled: true,
+    document
+      .getElementById('mnemo-modal-close')
+      ?.addEventListener('click', closeModal);
+    document
+      .getElementById('mnemo-license-accept')
+      ?.addEventListener('click', async () => {
+        setCableLicenseAccepted(true);
+        syncLicenseUi();
+        closeModal();
+        await runGevTool('set_layer_visibility', {
+          layerId: CABLES_LAYER_ID,
+          enabled: true,
+        });
       });
-    });
-    document.getElementById('mnemo-license-revoke')?.addEventListener('click', async () => {
-      setCableLicenseAccepted(false);
-      syncLicenseUi();
-      closeModal();
-      await runGevTool('set_layer_visibility', {
-        layerId: CABLES_LAYER_ID,
-        enabled: false,
+    document
+      .getElementById('mnemo-license-revoke')
+      ?.addEventListener('click', async () => {
+        setCableLicenseAccepted(false);
+        syncLicenseUi();
+        closeModal();
+        await runGevTool('set_layer_visibility', {
+          layerId: CABLES_LAYER_ID,
+          enabled: false,
+        });
       });
-    });
   };
 
   function openMemoryModal(initialQuery = '', initialAnswer = null) {
@@ -686,45 +807,52 @@ function mountMnemoHudOverlay() {
       box.className = 'mnemo-mem-hit';
       box.style.whiteSpace = 'pre-wrap';
       if (answer === null) box.textContent = 'Posez une question ci-dessus.';
-      else if (!answer) box.textContent = 'Votre mémoire ne contient rien sur ce sujet.';
+      else if (!answer)
+        box.textContent = 'Votre mémoire ne contient rien sur ce sujet.';
       else box.textContent = answer;
       listEl.replaceChildren(box);
     };
     renderAnswer(initialAnswer);
 
-    document.getElementById('mnemo-modal-close')?.addEventListener('click', closeModal);
-    document.getElementById('mnemo-mem-run')?.addEventListener('click', async () => {
-      const q = document.getElementById('mnemo-mem-q')?.value?.trim();
-      if (!q) return;
-      listEl.innerHTML = `<div class="mnemo-mem-hit">Recherche dans Mnemosyne OS...</div>`;
-      try {
-        renderAnswer(answerText(await sdk.query(q)));
-      } catch (err) {
-        console.warn('[gods-eye-view] memory query failed:', err);
-        if (listEl) listEl.textContent = `Erreur : ${err?.message || err}`;
-      }
-    });
-    document.getElementById('mnemo-mem-pin')?.addEventListener('click', async (ev) => {
-      const btn = ev.currentTarget;
-      btn.textContent = '⏳ Épinglage...';
-      try {
-        const viewState = await runGevTool('get_current_view_state', {});
-        const entityCtx = await runGevTool('get_entity_context', {});
-        // The app writes only into its own sandbox vault; the person decides
-        // from the Vault Pad whether it ever joins their real memory.
-        const sb = await sdk.ensureSandbox();
-        if (!sb?.vault) throw new Error('No sandbox vault returned');
-        await sdk.socialIngest(
-          sb.vault,
-          JSON.stringify({ viewState, entityCtx }, null, 2),
-          'SOCIAL_NODE',
-        );
-        btn.textContent = '✅ Épinglé dans Mnemosyne !';
-      } catch (err) {
-        console.warn('[gods-eye-view] pin into memory failed:', err);
-        btn.textContent = `⚠️ Épinglage impossible : ${err?.message || err}`;
-      }
-    });
+    document
+      .getElementById('mnemo-modal-close')
+      ?.addEventListener('click', closeModal);
+    document
+      .getElementById('mnemo-mem-run')
+      ?.addEventListener('click', async () => {
+        const q = document.getElementById('mnemo-mem-q')?.value?.trim();
+        if (!q) return;
+        listEl.innerHTML = `<div class="mnemo-mem-hit">Recherche dans Mnemosyne OS...</div>`;
+        try {
+          renderAnswer(answerText(await sdk.query(q)));
+        } catch (err) {
+          console.warn('[gods-eye-view] memory query failed:', err);
+          if (listEl) listEl.textContent = `Erreur : ${err?.message || err}`;
+        }
+      });
+    document
+      .getElementById('mnemo-mem-pin')
+      ?.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        btn.textContent = '⏳ Épinglage...';
+        try {
+          const viewState = await runGevTool('get_current_view_state', {});
+          const entityCtx = await runGevTool('get_entity_context', {});
+          // The app writes only into its own sandbox vault; the person decides
+          // from the Vault Pad whether it ever joins their real memory.
+          const sb = await sdk.ensureSandbox();
+          if (!sb?.vault) throw new Error('No sandbox vault returned');
+          await sdk.socialIngest(
+            sb.vault,
+            JSON.stringify({ viewState, entityCtx }, null, 2),
+            'SOCIAL_NODE',
+          );
+          btn.textContent = '✅ Épinglé dans Mnemosyne !';
+        } catch (err) {
+          console.warn('[gods-eye-view] pin into memory failed:', err);
+          btn.textContent = `⚠️ Épinglage impossible : ${err?.message || err}`;
+        }
+      });
   }
 
   window.__mnemoShowMemoryResults = (q, hits) => openMemoryModal(q, hits);
@@ -737,25 +865,41 @@ function mountMnemoHudOverlay() {
     openMemoryModal();
   });
 
-  document.getElementById('mnemo-btn-radar')?.addEventListener('click', async () => {
-    for (const lid of ['flights', 'military', 'satellites', 'cctv', 'earthquakes']) {
-      await runGevTool('set_layer_visibility', { layerId: lid, enabled: true });
-    }
-    await runGevTool('set_panel_open', { panelId: 'cctv-panel', open: true });
-  });
+  document
+    .getElementById('mnemo-btn-radar')
+    ?.addEventListener('click', async () => {
+      for (const lid of [
+        'flights',
+        'military',
+        'satellites',
+        'cctv',
+        'earthquakes',
+      ]) {
+        await runGevTool('set_layer_visibility', {
+          layerId: lid,
+          enabled: true,
+        });
+      }
+      await runGevTool('set_panel_open', { panelId: 'cctv-panel', open: true });
+    });
 
-  document.getElementById('mnemo-btn-cockpit')?.addEventListener('click', async (ev) => {
-    const btn = ev.currentTarget;
-    const gev = await waitForGev();
-    const cockpitState = gev.styleManager?.getCockpitState?.();
-    if (cockpitState?.active) {
-      await runGevTool('control_cockpit', { action: 'exit' });
-      btn.classList.remove('active');
-    } else {
-      btn.classList.add('active');
-      await runGevTool('control_cockpit', { action: 'enter', targetLayer: 'flights' });
-    }
-  });
+  document
+    .getElementById('mnemo-btn-cockpit')
+    ?.addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      const gev = await waitForGev();
+      const cockpitState = gev.styleManager?.getCockpitState?.();
+      if (cockpitState?.active) {
+        await runGevTool('control_cockpit', { action: 'exit' });
+        btn.classList.remove('active');
+      } else {
+        btn.classList.add('active');
+        await runGevTool('control_cockpit', {
+          action: 'enter',
+          targetLayer: 'flights',
+        });
+      }
+    });
 }
 
 /** Auto-activate sensational feeds on first launch inside Mnemosyne OS. */
@@ -765,7 +909,13 @@ async function autoBootSensationalFeeds() {
     const bootedKey = 'mnemo.argus.sensationalBoot.v1';
     if (!sessionStorage.getItem(bootedKey)) {
       sessionStorage.setItem(bootedKey, '1');
-      for (const lid of ['flights', 'military', 'satellites', 'cctv', 'earthquakes']) {
+      for (const lid of [
+        'flights',
+        'military',
+        'satellites',
+        'cctv',
+        'earthquakes',
+      ]) {
         await gev.voiceCommands.runner('set_layer_visibility', {
           layerId: lid,
           enabled: true,
@@ -790,7 +940,9 @@ function ensureAgentDoorSubscribed() {
   if (typeof sdk.onAgentActions !== 'function') {
     if (!agentDoorMissingSaid) {
       agentDoorMissingSaid = true;
-      console.warn('[gods-eye-view] this cartridge SDK has no onAgentActions: the agent door is off');
+      console.warn(
+        '[gods-eye-view] this cartridge SDK has no onAgentActions: the agent door is off',
+      );
     }
     activeSub = null;
     return;
@@ -812,7 +964,10 @@ export function initMnemoBridge() {
   try {
     startMnemoBridge();
   } catch (err) {
-    console.error('[gods-eye-view] Mnemosyne OS bridge failed to start; the globe runs without it:', err);
+    console.error(
+      '[gods-eye-view] Mnemosyne OS bridge failed to start; the globe runs without it:',
+      err,
+    );
   }
 }
 
@@ -829,12 +984,19 @@ function startMnemoBridge() {
     setTimeout(ensureAgentDoorSubscribed, 120);
   });
   window.addEventListener('message', (event) => {
-    if (event.source !== window.parent || event.data?.type !== 'MNEMO_CONFIG_UPDATE') return;
-    if (typeof event.data.lang === 'string' && event.data.lang) hostLang = event.data.lang;
+    if (
+      event.source !== window.parent ||
+      event.data?.type !== 'MNEMO_CONFIG_UPDATE'
+    )
+      return;
+    if (typeof event.data.lang === 'string' && event.data.lang)
+      hostLang = event.data.lang;
     if (event.data.tokens) setTimeout(ensureAgentDoorSubscribed, 60);
   });
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountMnemoHudOverlay, { once: true });
+    document.addEventListener('DOMContentLoaded', mountMnemoHudOverlay, {
+      once: true,
+    });
   } else {
     mountMnemoHudOverlay();
   }
