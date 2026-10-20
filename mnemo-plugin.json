@@ -69,17 +69,22 @@
   },
   "agentGuide": [
     "Use flyTo to fly the 3D globe camera to a city preset (nyc, london, tokyo, paris, sf, dubai, dc, austin) or any place query.",
-    "Use setLayers to enable or disable live OSINT feeds (flights, military, cctv, satellites, ais-live-vessels, submarine-cables, earthquakes, firms, weather, wind, radio).",
+    "Use setLayers with one layerId at a time; plain English words work (planes, ships, cameras, cables, fires, weather, cyclones). Translate the person's words to English first.",
     "Use controlCctv with action 'nearest', 'next', or 'select' to open a live CCTV camera stream and 3D viewshed cone.",
     "Use setOptics to switch the post-processing shader (normal, retro, surveillance, thermal, noir, anime, snow).",
-    "Submarine cables require user acceptance of the CC BY-NC-SA 3.0 license via acceptLicensePack."
+    "Submarine cables are CC BY-NC-SA 3.0: acceptLicensePack opens the licence window and the PERSON accepts it there. Never tell them it is accepted until status says so."
   ],
   "agentActions": [
     {
       "id": "status",
-      "summary": "Read active 3D globe state, enabled live layers, optics shader, tracked entity, and CC BY-NC license status.",
+      "summary": "Read the globe: camera, optics, context mode, cockpit, tracked entity, live layers on and off, licence packs. About 1 KB.",
       "effect": "read",
-      "params": {}
+      "params": {
+        "full": {
+          "type": "boolean",
+          "description": "True for the whole state (about 19 KB): feed provenance, every layer, the scene in view."
+        }
+      }
     },
     {
       "id": "flyTo",
@@ -123,7 +128,7 @@
       "params": {
         "layerId": {
           "type": "string",
-          "description": "Layer ID to toggle (flights, military, cctv, satellites, ais-live-vessels, submarine-cables, earthquakes, firms, weather, wind, radio, traffic, transit)",
+          "description": "A layer id or a plain English word: planes, military, cameras, satellites, ships, cables, earthquakes, fires, weather, cyclones, wind, radio, traffic, transit, launches.",
           "maxLength": 60
         },
         "enabled": {
@@ -133,7 +138,8 @@
       },
       "required": [
         "layerId"
-      ]
+      ],
+      "details": "Ids: flights, military, cctv, satellites, ais-live-vessels, telegeography-submarine-cables (licence window first), earthquakes, local-firms, weather-radar, weather-cyclones, wind, radio, traffic, transit, rocket-launches, military-installations, gnss-integrity, air-quality, street-level."
     },
     {
       "id": "setOptics",
@@ -230,7 +236,7 @@
     },
     {
       "id": "selectNearestAircraft",
-      "summary": "Lock onto the nearest live civil or military aircraft on the 3D radar.",
+      "summary": "Lock onto the live aircraft nearest to a place, or to the camera when no place is given.",
       "effect": "write",
       "params": {
         "layerId": {
@@ -245,6 +251,11 @@
           "type": "string",
           "description": "Optional city preset ID",
           "maxLength": 60
+        },
+        "locationQuery": {
+          "type": "string",
+          "description": "A place name, e.g. 'Heathrow' or 'Lyon'",
+          "maxLength": 120
         }
       }
     },
@@ -343,12 +354,12 @@
     },
     {
       "id": "acceptLicensePack",
-      "summary": "Record user acceptance of the CC BY-NC-SA 3.0 license for the 712 TeleGeography Submarine Cables dataset and toggle the layer.",
+      "summary": "Submarine cables (CC BY-NC-SA 3.0): open the licence window for the person to accept, or turn the pack off with accept false. An agent cannot accept the licence.",
       "effect": "write",
       "params": {
         "accept": {
           "type": "boolean",
-          "description": "True to accept and load submarine cables, false to revoke"
+          "description": "False turns the cables pack off. True (default) shows them if already accepted, otherwise opens the licence window."
         }
       }
     },

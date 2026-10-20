@@ -1,4 +1,5 @@
 import { MnemoCartridgeSDK } from '@mnemosyne_os/cartridge-sdk';
+import { voiceLayerAliasMap } from '../voice/layerManifest.js';
 import {
   isCableLicenseAccepted,
   setCableLicenseAccepted,
@@ -71,21 +72,14 @@ function normalizeFlyToArgs(params = {}) {
   };
 }
 
-const LAYER_ALIAS_MAP = {
-  vessels: 'ais-live-vessels',
-  ships: 'ais-live-vessels',
-  ais: 'ais-live-vessels',
-  cables: 'submarine-cables',
-  submarine_cables: 'submarine-cables',
-  fires: 'firms',
-  launches: 'rocket-launches',
-  installations: 'military-installations',
-  gnss: 'gnss-integrity',
-};
+// God's Eye View's own layer vocabulary (ids + spoken aliases). A second
+// table here drifted: it sent "cables" to a layer id that never existed.
+const LAYER_ALIASES = voiceLayerAliasMap();
+const CABLES_LAYER_ID = 'telegeography-submarine-cables';
 
 function normalizeLayerId(id) {
   const clean = String(id || '').trim().toLowerCase();
-  return LAYER_ALIAS_MAP[clean] || clean;
+  return LAYER_ALIASES.get(clean) || LAYER_ALIASES.get(clean.replace(/[-_]+/g, ' ')) || clean;
 }
 
 const OPTICS_ALIAS_MAP = {
@@ -99,27 +93,60 @@ function normalizeOpticsStyle(style) {
   return OPTICS_ALIAS_MAP[clean] || clean;
 }
 
+/**
+ * runGevTool for the agent door: God's Eye View answers a failure as a value
+ * (`{ ok: false, error, say }`), and wrapping that in `{ ok: true }` told the
+ * agent, and the orb after it, that a refused action had been done.
+ */
+async function runChecked(actionName, args = {}) {
+  const res = await runGevTool(actionName, args);
+  if (res && typeof res === 'object' && res.ok === false) {
+    throw new Error(String(res.error || res.say || `${actionName} failed`));
+  }
+  return res;
+}
+
+/** What a person asks about the view, in ~1 KB instead of ~19 KB. */
+function compactStatus(viewState, entityCtx, licensePacks) {
+  const layers = Array.isArray(viewState?.layers) ? viewState.layers : [];
+  return {
+    app: "God's Eye View",
+    say: viewState?.say ?? null,
+    camera: viewState?.camera ?? null,
+    style: viewState?.style ?? null,
+    contextMode: viewState?.context?.mode ?? null,
+    cockpitActive: viewState?.cockpit?.active ?? null,
+    tracked: viewState?.tracked ?? [],
+    scenePlaying: viewState?.scenePlayback?.running ?? null,
+    layersOn: layers
+      .filter((l) => l.enabled)
+      .map((l) => ({ id: l.id, count: l.count ?? null, feedState: l.feedState ?? null, ...(l.error ? { error: l.error } : {}) })),
+    layersOff: layers.filter((l) => !l.enabled).map((l) => l.id),
+    entitiesInView: entityCtx?.count ?? null,
+    selected: entityCtx?.selected ?? null,
+    licensePacks,
+    more: 'status {"full": true} gives the whole state (~19 KB).',
+  };
+}
+
 /** Register Mnemosyne OS Agent Door actions. */
 function registerMnemoAgentDoor() {
   return sdk.onAgentActions(
     {
-      status: async () => {
+      status: async (params = {}) => {
         const gev = await waitForGev();
         const viewState = await gev.voiceCommands.runner('get_current_view_state', {});
         const entityCtx = await gev.voiceCommands.runner('get_entity_context', {});
-        return {
-          app: "God's Eye View",
-          viewState,
-          entityContext: entityCtx,
-          licensePacks: {
-            submarineCablesCcByNcSa30: isCableLicenseAccepted(),
-          },
-        };
+        const licensePacks = { submarineCablesCcByNcSa30: isCableLicenseAccepted() };
+        // The full state is ~19 KB (~5,000 tokens) and an agent pays it on every
+        // question; the default answers what a person asks about the view.
+        if (params.full === true) return { app: "God's Eye View", viewState, entityContext: entityCtx, licensePacks };
+        return compactStatus(viewState, entityCtx, licensePacks);
       },
 
       flyTo: async (params = {}) => {
         const args = normalizeFlyToArgs(params);
-        const res = await runGevTool('fly_to_location', args);
+        const res = await runChecked('fly_to_location', args);
         return { ok: true, action: 'fly_to_location', args, result: res };
       },
 
@@ -128,7 +155,7 @@ function registerMnemoAgentDoor() {
         const results = [];
         if (params.layerId) {
           const lid = normalizeLayerId(params.layerId);
-          if (lid === 'submarine-cables' && params.enabled !== false && !isCableLicenseAccepted()) {
+          if (lid === CABLES_LAYER_ID && params.enabled !== false && !isCableLicenseAccepted()) {
             window.__mnemoOpenLicenseModal?.('cables');
             return {
               ok: false,
@@ -139,7 +166,7 @@ function registerMnemoAgentDoor() {
                 'TeleGeography Submarine Cables requires user acceptance of the CC BY-NC-SA 3.0 license.',
             };
           }
-          const r = await runGevTool('set_layer_visibility', {
+          const r = await runChecked('set_layer_visibility', {
             layerId: lid,
             enabled: params.enabled !== false,
           });
@@ -148,11 +175,11 @@ function registerMnemoAgentDoor() {
         if (params.layers && typeof params.layers === 'object') {
           for (const [k, v] of Object.entries(params.layers)) {
             const lid = normalizeLayerId(k);
-            if (lid === 'submarine-cables' && Boolean(v) && !isCableLicenseAccepted()) {
+            if (lid === CABLES_LAYER_ID && Boolean(v) && !isCableLicenseAccepted()) {
               window.__mnemoOpenLicenseModal?.('cables');
               continue;
             }
-            const r = await runGevTool('set_layer_visibility', {
+            const r = await runChecked('set_layer_visibility', {
               layerId: lid,
               enabled: Boolean(v),
             });
@@ -162,11 +189,11 @@ function registerMnemoAgentDoor() {
         if (Array.isArray(params.enable)) {
           for (const item of params.enable) {
             const lid = normalizeLayerId(item);
-            if (lid === 'submarine-cables' && !isCableLicenseAccepted()) {
+            if (lid === CABLES_LAYER_ID && !isCableLicenseAccepted()) {
               window.__mnemoOpenLicenseModal?.('cables');
               continue;
             }
-            const r = await runGevTool('set_layer_visibility', {
+            const r = await runChecked('set_layer_visibility', {
               layerId: lid,
               enabled: true,
             });
@@ -176,7 +203,7 @@ function registerMnemoAgentDoor() {
         if (Array.isArray(params.disable)) {
           for (const item of params.disable) {
             const lid = normalizeLayerId(item);
-            const r = await runGevTool('set_layer_visibility', {
+            const r = await runChecked('set_layer_visibility', {
               layerId: lid,
               enabled: false,
             });
@@ -188,13 +215,13 @@ function registerMnemoAgentDoor() {
 
       setOptics: async (params = {}) => {
         const style = normalizeOpticsStyle(params.style || params.mode || 'normal');
-        const res = await runGevTool('set_visual_style', { style });
+        const res = await runChecked('set_visual_style', { style });
         return { ok: true, style, result: res };
       },
 
       controlCctv: async (params = {}) => {
         const action = String(params.action || 'nearest').trim();
-        const res = await runGevTool('control_cctv', {
+        const res = await runChecked('control_cctv', {
           action,
           ...(params.cameraQuery ? { cameraQuery: String(params.cameraQuery) } : {}),
           ...(typeof params.enabled === 'boolean' ? { enabled: params.enabled } : {}),
@@ -204,7 +231,7 @@ function registerMnemoAgentDoor() {
 
       controlRadio: async (params = {}) => {
         const action = String(params.action || 'enable').trim();
-        const res = await runGevTool('control_radio', {
+        const res = await runChecked('control_radio', {
           action,
           ...(params.category ? { category: String(params.category) } : {}),
           ...(params.locationId ? { locationId: String(params.locationId) } : {}),
@@ -216,20 +243,33 @@ function registerMnemoAgentDoor() {
       },
 
       selectNearestAircraft: async (params = {}) => {
-        const res = await runGevTool('select_nearest_aircraft', {
-          layerId: params.layerId === 'military' ? 'military' : 'flights',
+        const where = {
           ...(params.locationId ? { locationId: String(params.locationId) } : {}),
           ...(params.locationQuery ? { locationQuery: String(params.locationQuery) } : {}),
+        };
+        // No place named: "the nearest aircraft" is the one nearest to what the
+        // person is looking at, so the camera is the place.
+        if (!where.locationId && !where.locationQuery) {
+          const view = await runGevTool('get_current_view_state', {});
+          const cam = view?.camera;
+          if (cam && Number.isFinite(cam.latitude) && Number.isFinite(cam.longitude)) {
+            where.latitude = cam.latitude;
+            where.longitude = cam.longitude;
+          }
+        }
+        const res = await runChecked('select_nearest_aircraft', {
+          layerId: params.layerId === 'military' ? 'military' : 'flights',
+          ...where,
         });
         return { ok: true, result: res };
       },
 
       trackEntity: async (params = {}) => {
         if (params.stop) {
-          const res = await runGevTool('stop_tracking', {});
+          const res = await runChecked('stop_tracking', {});
           return { ok: true, stopped: true, result: res };
         }
-        const res = await runGevTool('track_entity', {
+        const res = await runChecked('track_entity', {
           query: String(params.query || ''),
           ...(params.layerId ? { layerId: normalizeLayerId(params.layerId) } : {}),
         });
@@ -238,7 +278,7 @@ function registerMnemoAgentDoor() {
 
       controlCockpit: async (params = {}) => {
         const action = String(params.action || 'enter').trim();
-        const res = await runGevTool('control_cockpit', {
+        const res = await runChecked('control_cockpit', {
           action,
           ...(params.targetLayer ? { targetLayer: String(params.targetLayer) } : {}),
         });
@@ -247,52 +287,53 @@ function registerMnemoAgentDoor() {
 
       setCyberSonar: async (params = {}) => {
         const enabled = params.enabled !== false;
-        const res = await runGevTool('set_cyber_sonar', { enabled });
+        const res = await runChecked('set_cyber_sonar', { enabled });
         return { ok: true, enabled, result: res };
       },
 
       setContextMode: async (params = {}) => {
         const mode = String(params.mode || 'contacts').trim();
-        const res = await runGevTool('set_context_mode', { mode });
+        const res = await runChecked('set_context_mode', { mode });
         return { ok: true, mode, result: res };
       },
 
       showPanel: async (params = {}) => {
         const panelId = String(params.panelId || 'cctv-panel').trim();
         const open = params.open !== false;
-        const res = await runGevTool('set_panel_open', { panelId, open });
+        const res = await runChecked('set_panel_open', { panelId, open });
         return { ok: true, panelId, open, result: res };
       },
 
       controlScene: async (params = {}) => {
         const action = String(params.action || 'list').trim();
-        const res = await runGevTool('control_scene', {
+        const res = await runChecked('control_scene', {
           action,
           ...(params.sceneId ? { sceneId: String(params.sceneId) } : {}),
         });
         return { ok: true, action, result: res };
       },
 
+      // An agent never accepts a licence for the person: this opens the
+      // licence window and the person clicks. Turning the pack OFF is safe and
+      // stays available to the agent.
       acceptLicensePack: async (params = {}) => {
-        const accept = params.accept !== false;
-        setCableLicenseAccepted(accept);
-        window.__mnemoSyncLicenseUi?.();
-        if (accept) {
-          await runGevTool('set_layer_visibility', {
-            layerId: 'submarine-cables',
-            enabled: true,
-          });
-        } else {
-          await runGevTool('set_layer_visibility', {
-            layerId: 'submarine-cables',
-            enabled: false,
-          });
+        if (params.accept === false) {
+          setCableLicenseAccepted(false);
+          window.__mnemoSyncLicenseUi?.();
+          await runGevTool('set_layer_visibility', { layerId: CABLES_LAYER_ID, enabled: false });
+          return { packId: 'cables', accepted: false, license: 'CC BY-NC-SA 3.0' };
         }
+        if (isCableLicenseAccepted()) {
+          await runChecked('set_layer_visibility', { layerId: CABLES_LAYER_ID, enabled: true });
+          return { packId: 'cables', accepted: true, license: 'CC BY-NC-SA 3.0' };
+        }
+        window.__mnemoOpenLicenseModal?.('cables');
         return {
-          ok: true,
           packId: 'cables',
-          accepted: accept,
+          accepted: false,
+          licenceWindowOpen: true,
           license: 'CC BY-NC-SA 3.0',
+          say: 'The licence window is open. The person has to accept it there.',
         };
       },
 
@@ -553,7 +594,7 @@ function mountMnemoHudOverlay() {
       syncLicenseUi();
       closeModal();
       await runGevTool('set_layer_visibility', {
-        layerId: 'submarine-cables',
+        layerId: CABLES_LAYER_ID,
         enabled: true,
       });
     });
@@ -562,7 +603,7 @@ function mountMnemoHudOverlay() {
       syncLicenseUi();
       closeModal();
       await runGevTool('set_layer_visibility', {
-        layerId: 'submarine-cables',
+        layerId: CABLES_LAYER_ID,
         enabled: false,
       });
     });
