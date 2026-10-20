@@ -6,34 +6,101 @@
   "category": "Intelligence",
   "vendor": "Bilawal Sidhu (MIT)",
   "license": "MIT",
-  "description": "God's Eye View by Bilawal Sidhu — Real-time 3D intelligence console for planet Earth (CesiumJS, live ADS-B Flight Radar, 4,000+ live CCTV Webcams, AIS Vessels, CelesTrak Satellites, World Radio & Optical Shaders), integrated with Mnemosyne OS.",
+  "description": "God's Eye View by Bilawal Sidhu: a real-time 3D console of planet Earth (CesiumJS) with live aircraft (ADS-B), 4,000+ live webcams, ships (AIS), satellites (CelesTrak), world radio and image filters, connected to Mnemosyne OS.",
   "descriptionI18n": {
-    "en": "God's Eye View by Bilawal Sidhu — Real-time 3D intelligence console for planet Earth (CesiumJS, live ADS-B Flight Radar, 4,000+ live CCTV Webcams, AIS Vessels, CelesTrak Satellites, World Radio & Optical Shaders), integrated with Mnemosyne OS.",
+    "en": "God's Eye View by Bilawal Sidhu: a real-time 3D console of planet Earth (CesiumJS) with live aircraft (ADS-B), 4,000+ live webcams, ships (AIS), satellites (CelesTrak), world radio and image filters, connected to Mnemosyne OS.",
     "fr": "God's Eye View par Bilawal Sidhu : une console 3D en temps réel de la planète (CesiumJS), avec les avions en direct (ADS-B), plus de 4 000 webcams, les navires (AIS), les satellites (CelesTrak), les radios du monde et des filtres d'image, reliée à Mnemosyne OS.",
     "es": "God's Eye View de Bilawal Sidhu: una consola 3D en tiempo real del planeta (CesiumJS), con aviones en directo (ADS-B), más de 4000 webcams, barcos (AIS), satélites (CelesTrak), radios del mundo y filtros de imagen, conectada a Mnemosyne OS."
   },
   "keywords": [
     "globe",
-    "map",
-    "flights",
+    "earth",
+    "planes",
     "aircraft",
-    "ships",
+    "radar",
     "satellites",
     "webcams",
+    "cctv",
+    "ships",
     "earthquakes",
-    "radio",
-    "globe 3D",
-    "carte",
+    "cockpit",
+    "thermal",
+    "osint",
     "avions",
-    "navires",
     "satellites",
+    "caméras",
+    "navires",
     "séismes",
-    "mapa",
     "aviones",
-    "barcos",
     "satélites",
+    "cámaras",
     "terremotos"
   ],
+  "voiceCommands": {
+    "fr": [
+      "montre les avions en direct",
+      "allume les satellites sur le globe",
+      "passe en vision thermique",
+      "ouvre la caméra la plus proche",
+      "entre dans le cockpit d'un avion",
+      "montre les séismes du jour",
+      "vole vers Tokyo"
+    ],
+    "en": [
+      "show live planes",
+      "turn on the satellites on the globe",
+      "switch to thermal vision",
+      "open the nearest camera",
+      "enter the cockpit of a plane",
+      "show today's earthquakes",
+      "fly to Tokyo"
+    ],
+    "es": [
+      "muestra los aviones en directo",
+      "enciende los satélites en el globo",
+      "cambia a visión térmica",
+      "abre la cámara más cercana",
+      "entra en la cabina de un avión",
+      "muestra los terremotos de hoy",
+      "vuela a Tokio"
+    ],
+    "de": [
+      "zeig die Flugzeuge live",
+      "schalte die Satelliten auf dem Globus ein",
+      "wechsle zur Wärmebildsicht",
+      "öffne die nächste Kamera",
+      "steig ins Cockpit eines Flugzeugs",
+      "zeig die Erdbeben von heute",
+      "flieg nach Tokio"
+    ],
+    "pt": [
+      "mostra os aviões ao vivo",
+      "liga os satélites no globo",
+      "muda para visão térmica",
+      "abre a câmara mais próxima",
+      "entra no cockpit de um avião",
+      "mostra os sismos de hoje",
+      "voa para Tóquio"
+    ],
+    "ru": [
+      "покажи самолёты в реальном времени",
+      "включи спутники на глобусе",
+      "включи тепловизор",
+      "открой ближайшую камеру",
+      "войди в кабину самолёта",
+      "покажи землетрясения за сегодня",
+      "лети в Токио"
+    ],
+    "zh": [
+      "显示实时航班",
+      "打开地球上的卫星",
+      "切换到热成像",
+      "打开最近的摄像头",
+      "进入飞机驾驶舱",
+      "显示今天的地震",
+      "飞到东京"
+    ]
+  },
   "icon": "icon.svg",
   "entrypoints": {
     "renderer": "http://localhost:5239/index.html"
@@ -65,7 +132,7 @@
       "minHeight": 640
     },
     "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><ellipse cx=\"12\" cy=\"12\" rx=\"9\" ry=\"3.8\"/><path d=\"M12 3a14 14 0 0 1 0 18\"/><path d=\"M12 3a14 14 0 0 0 0 18\"/><circle cx=\"12\" cy=\"12\" r=\"2.4\" fill=\"currentColor\"/></svg>",
-    "tooltip": "God's Eye View — Real-time 3D Globe, ADS-B Flight Radar, Live CCTV, Satellites & Shaders"
+    "tooltip": "God's Eye View: real-time 3D globe, live aircraft, webcams, satellites and image filters"
   },
   "agentGuide": [
     "Use flyTo to fly the 3D globe camera to a city preset (nyc, london, tokyo, paris, sf, dubai, dc, austin) or any place query.",

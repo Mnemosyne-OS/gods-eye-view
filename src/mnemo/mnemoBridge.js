@@ -18,17 +18,85 @@ function answerText(result) {
   return String(result?.text ?? result?.response ?? result?.content ?? result?.answer ?? '').trim();
 }
 
-/** Wait until window.__godsEyeView.voiceCommands.runner is initialized. */
-async function waitForGev(timeoutMs = 15000) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The person's language, from the host's MNEMO_CONFIG_UPDATE. A `say` this
+ * bridge returns is spoken AS IS by the orb, in place of the sentence the
+ * orb wrote in the person's language: an English line here was read out in
+ * English to a French speaker (2026-10-19).
+ */
+let hostLang = 'en';
+const PHRASES = {
+  notOnScreen: {
+    en: 'The window is not on screen: the camera will fly when it is shown.',
+    fr: 'La fenêtre n’est pas affichée : la caméra partira quand elle le sera.',
+    es: 'La ventana no está en pantalla: la cámara volará cuando se muestre.',
+    de: 'Das Fenster ist nicht sichtbar: Die Kamera fliegt los, sobald es angezeigt wird.',
+    pt: 'A janela não está visível: a câmara vai voar quando for mostrada.',
+    ru: 'Окно не на экране: камера полетит, когда его покажут.',
+    zh: '窗口未显示：显示后镜头才会飞过去。',
+  },
+  licenceWindow: {
+    en: 'The licence window is open: accept it there to show the cables.',
+    fr: 'La fenêtre de licence est ouverte : accepte-la pour afficher les câbles.',
+    es: 'La ventana de licencia está abierta: acéptala para mostrar los cables.',
+    de: 'Das Lizenzfenster ist offen: Bestätige es dort, um die Kabel zu zeigen.',
+    pt: 'A janela da licença está aberta: aceita-a para mostrar os cabos.',
+    ru: 'Окно лицензии открыто: примите её, чтобы показать кабели.',
+    zh: '许可窗口已打开：在那里接受后即可显示海缆。',
+  },
+};
+function phrase(key) {
+  const table = PHRASES[key];
+  const lang = String(hostLang || 'en').toLowerCase().slice(0, 2);
+  return table[lang] || table.en;
+}
+
+/** Set once the globe has finished its start: later calls skip the wait. */
+let gevSettled = false;
+
+/**
+ * Wait until the globe can be driven. The voice runner exists well before the
+ * start is over: the start then restores the opening view and flies the
+ * camera there. A flyTo sent in between was accepted, answered « ok », and
+ * undone by that flight (2026-10-19: the orb said « Je vole vers Tokyo » and
+ * the camera ended over Austin). So: the runner, then the start's own view
+ * restore (the promise the loading screen waits for), then a camera that has
+ * stopped moving.
+ */
+async function waitForGev(timeoutMs = 30000) {
   const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const gev = window.__godsEyeView;
-    if (gev?.voiceCommands?.runner && gev?.dataManager && gev?.styleManager) {
-      return gev;
-    }
-    await new Promise((r) => setTimeout(r, 120));
+  const left = () => timeoutMs - (Date.now() - start);
+  let gev = null;
+  while (left() > 0) {
+    const g = window.__godsEyeView;
+    if (g?.voiceCommands?.runner && g?.dataManager && g?.styleManager) { gev = g; break; }
+    await sleep(120);
   }
-  throw new Error('Argus 3D globe engine is still initializing');
+  if (!gev) throw new Error("God's Eye View is still starting: try again in a few seconds");
+  if (gevSettled) return gev;
+
+  const restore = gev.styleManager.initialRestorePromise;
+  if (restore && typeof restore.then === 'function') {
+    await Promise.race([restore.catch(() => undefined), sleep(Math.max(0, left()))]);
+  }
+  // The opening flight: wait for three still readings in a row (600 ms).
+  const camera = gev.viewer?.camera;
+  if (camera?.positionWC) {
+    let last = null;
+    let still = 0;
+    while (left() > 0 && still < 3) {
+      const p = camera.positionWC;
+      const now = { x: p.x, y: p.y, z: p.z };
+      const moved = last ? Math.hypot(now.x - last.x, now.y - last.y, now.z - last.z) : Infinity;
+      still = moved < 1 ? still + 1 : 0;
+      last = now;
+      await sleep(200);
+    }
+  }
+  gevSettled = true;
+  return gev;
 }
 
 async function runGevTool(actionName, args = {}) {
@@ -106,12 +174,46 @@ async function runChecked(actionName, args = {}) {
   return res;
 }
 
+/**
+ * Frames this window painted per second, measured over `ms`. A window hidden
+ * behind another one gets none: Chromium stops its frames, so a camera flight
+ * is accepted and stays frozen until the window is seen again. An agent that
+ * says « flying to Tokyo » while this reads 0 is telling the person something
+ * they will not see happen.
+ */
+function measureFps(ms = 400) {
+  return new Promise((resolve) => {
+    let frames = 0;
+    let id = 0;
+    const t0 = performance.now();
+    const tick = () => { frames++; id = requestAnimationFrame(tick); };
+    id = requestAnimationFrame(tick);
+    setTimeout(() => {
+      cancelAnimationFrame(id);
+      resolve(Math.round((frames * 1000) / (performance.now() - t0)));
+    }, ms);
+  });
+}
+
+/** The camera's world position now, or null before the globe exists. */
+function cameraPosition() {
+  const p = window.__godsEyeView?.viewer?.camera?.positionWC;
+  return p ? { x: p.x, y: p.y, z: p.z } : null;
+}
+
+/** More than a metre between two readings; unknown readings never count as moved. */
+function cameraMoved(a, b) {
+  return Boolean(a && b) && Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) > 1;
+}
+
 /** What a person asks about the view, in ~1 KB instead of ~19 KB. */
-function compactStatus(viewState, entityCtx, licensePacks) {
+function compactStatus(viewState, entityCtx, licensePacks, fps = null) {
   const layers = Array.isArray(viewState?.layers) ? viewState.layers : [];
   return {
     app: "God's Eye View",
     say: viewState?.say ?? null,
+    framesPerSecond: fps,
+    onScreen: fps === null ? null : fps > 0,
     camera: viewState?.camera ?? null,
     style: viewState?.style ?? null,
     contextMode: viewState?.context?.mode ?? null,
@@ -141,13 +243,26 @@ function registerMnemoAgentDoor() {
         // The full state is ~19 KB (~5,000 tokens) and an agent pays it on every
         // question; the default answers what a person asks about the view.
         if (params.full === true) return { app: "God's Eye View", viewState, entityContext: entityCtx, licensePacks };
-        return compactStatus(viewState, entityCtx, licensePacks);
+        return compactStatus(viewState, entityCtx, licensePacks, await measureFps());
       },
 
       flyTo: async (params = {}) => {
         const args = normalizeFlyToArgs(params);
+        const before = cameraPosition();
         const res = await runChecked('fly_to_location', args);
-        return { ok: true, action: 'fly_to_location', args, result: res };
+        // An animated flight is frames: in a window hidden behind another one
+        // it waits. A place set directly has already moved the camera, so the
+        // notice is said only when nothing moved (measured 2026-10-19: a city
+        // preset froze over Austin, « Londres » landed with 0 frames).
+        const fps = await measureFps();
+        const frozen = fps === 0 && !cameraMoved(before, cameraPosition());
+        return {
+          ok: true,
+          action: 'fly_to_location',
+          args,
+          result: res,
+          ...(frozen ? { onScreen: false, say: phrase('notOnScreen') } : {}),
+        };
       },
 
       setLayers: async (params = {}) => {
@@ -333,7 +448,7 @@ function registerMnemoAgentDoor() {
           accepted: false,
           licenceWindowOpen: true,
           license: 'CC BY-NC-SA 3.0',
-          say: 'The licence window is open. The person has to accept it there.',
+          say: phrase('licenceWindow'),
         };
       },
 
@@ -777,9 +892,9 @@ function startMnemoBridge() {
     setTimeout(ensureAgentDoorSubscribed, 120);
   });
   window.addEventListener('message', (event) => {
-    if (event.source === window.parent && event.data?.type === 'MNEMO_CONFIG_UPDATE' && event.data?.tokens) {
-      setTimeout(ensureAgentDoorSubscribed, 60);
-    }
+    if (event.source !== window.parent || event.data?.type !== 'MNEMO_CONFIG_UPDATE') return;
+    if (typeof event.data.lang === 'string' && event.data.lang) hostLang = event.data.lang;
+    if (event.data.tokens) setTimeout(ensureAgentDoorSubscribed, 60);
   });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', mountMnemoHudOverlay, { once: true });
