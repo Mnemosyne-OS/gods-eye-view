@@ -29,6 +29,7 @@ export const PHRASES = {
     zh: '许可窗口已打开：在那里接受后即可显示海缆。',
   },
 };
+/** A bridge sentence in the host's language; an unknown language falls back to English. */
 export function phrase(key, lang = 'en') {
   const table = PHRASES[key];
   const code = String(lang || 'en')
@@ -59,7 +60,9 @@ export function compactStatus(viewState, entityCtx, licensePacks, fps = null) {
   const layers = Array.isArray(viewState?.layers) ? viewState.layers : [];
   return {
     app: "God's Eye View",
-    say: viewState?.say ?? null,
+    // Not `say`: the orb reads a `say` aloud word for word, and this one is
+    // God's Eye View's English sentence. The planner words it for the person.
+    summary: viewState?.say ?? null,
     framesPerSecond: fps,
     onScreen: fps === null ? null : fps > 0,
     camera: viewState?.camera ?? null,
@@ -82,4 +85,127 @@ export function compactStatus(viewState, entityCtx, licensePacks, fps = null) {
     licensePacks,
     more: 'status {"full": true} gives the whole state (~19 KB).',
   };
+}
+
+/**
+ * The bridge's own screen text (HUD bar, licence window, memory window) in
+ * the three languages the host ships first. God's Eye View has no French:
+ * an English or Spanish speaker saw these in French before (2026-10-20).
+ */
+export const UI_TEXT = {
+  radarTitle: {
+    en: 'Turn on live aircraft, satellites and webcams',
+    fr: 'Allumer les avions en direct, les satellites et les webcams',
+    es: 'Encender los aviones en directo, los satélites y las webcams',
+  },
+  cockpitTitle: {
+    en: 'Enter or leave the 3D cockpit of a live aircraft',
+    fr: 'Entrer dans le cockpit 3D d’un avion en vol, ou en sortir',
+    es: 'Entrar en la cabina 3D de un avión en vuelo, o salir',
+  },
+  cockpit: { en: 'Cockpit 3D', fr: 'Cockpit 3D', es: 'Cabina 3D' },
+  cablesTitle: {
+    en: 'Submarine cables (licence CC BY-NC-SA 3.0)',
+    fr: 'Câbles sous-marins (licence CC BY-NC-SA 3.0)',
+    es: 'Cables submarinos (licencia CC BY-NC-SA 3.0)',
+  },
+  cables: {
+    en: 'Cables CC BY-NC',
+    fr: 'Câbles CC BY-NC',
+    es: 'Cables CC BY-NC',
+  },
+  cablesOn: {
+    en: 'Cables CC BY-NC (on)',
+    fr: 'Câbles CC BY-NC (actifs)',
+    es: 'Cables CC BY-NC (activos)',
+  },
+  memoryTitle: {
+    en: 'Ask your Mnemosyne OS memory, or pin this view into it',
+    fr: 'Interroger ta mémoire Mnemosyne OS, ou y épingler cette vue',
+    es: 'Preguntar a tu memoria de Mnemosyne OS, o fijar esta vista en ella',
+  },
+  memory: { en: 'Memory', fr: 'Mémoire', es: 'Memoria' },
+  licenceHeading: {
+    en: 'Submarine cables: the licence',
+    fr: 'Câbles sous-marins : la licence',
+    es: 'Cables submarinos: la licencia',
+  },
+  licenceBody: {
+    en: "God's Eye View by Bilawal Sidhu is MIT. The submarine cable map comes from TeleGeography under CC BY-NC-SA 3.0, for non-commercial use. The cables appear only after you accept that licence.",
+    fr: "God's Eye View, de Bilawal Sidhu, est sous licence MIT. La carte des câbles sous-marins vient de TeleGeography, sous licence CC BY-NC-SA 3.0, pour un usage non commercial. Les câbles ne s'affichent qu'après ton accord.",
+    es: "God's Eye View, de Bilawal Sidhu, tiene licencia MIT. El mapa de cables submarinos viene de TeleGeography, con licencia CC BY-NC-SA 3.0, para uso no comercial. Los cables solo aparecen después de que aceptes esa licencia.",
+  },
+  licenceSource: {
+    en: 'Source: TeleGeography (submarinecablemap.com).',
+    fr: 'Source : TeleGeography (submarinecablemap.com).',
+    es: 'Fuente: TeleGeography (submarinecablemap.com).',
+  },
+  close: { en: 'Close', fr: 'Fermer', es: 'Cerrar' },
+  revoke: {
+    en: 'Turn the cables off',
+    fr: 'Désactiver les câbles',
+    es: 'Desactivar los cables',
+  },
+  accept: {
+    en: 'I accept CC BY-NC-SA 3.0 · Show the cables',
+    fr: 'J’accepte CC BY-NC-SA 3.0 · Afficher les câbles',
+    es: 'Acepto CC BY-NC-SA 3.0 · Mostrar los cables',
+  },
+  memoryHeading: {
+    en: 'Your Mnemosyne OS memory',
+    fr: 'Ta mémoire Mnemosyne OS',
+    es: 'Tu memoria de Mnemosyne OS',
+  },
+  memoryIntro: {
+    en: 'Ask your memory a question, or pin the current view into it.',
+    fr: 'Pose une question à ta mémoire, ou épingle-y la vue actuelle.',
+    es: 'Haz una pregunta a tu memoria, o fija en ella la vista actual.',
+  },
+  memoryPlaceholder: {
+    en: 'Search your notes (aviation, cable, satellite, port…)',
+    fr: 'Chercher dans tes notes (aviation, câble, satellite, port…)',
+    es: 'Buscar en tus notas (aviación, cable, satélite, puerto…)',
+  },
+  search: { en: 'Search', fr: 'Chercher', es: 'Buscar' },
+  pin: {
+    en: 'Pin this view into Mnemosyne OS',
+    fr: 'Épingler cette vue dans Mnemosyne OS',
+    es: 'Fijar esta vista en Mnemosyne OS',
+  },
+  askAbove: {
+    en: 'Ask a question above.',
+    fr: 'Pose une question ci-dessus.',
+    es: 'Haz una pregunta arriba.',
+  },
+  nothingFound: {
+    en: 'Your memory holds nothing on this.',
+    fr: 'Ta mémoire ne contient rien sur ce sujet.',
+    es: 'Tu memoria no tiene nada sobre esto.',
+  },
+  searching: {
+    en: 'Searching Mnemosyne OS…',
+    fr: 'Recherche dans Mnemosyne OS…',
+    es: 'Buscando en Mnemosyne OS…',
+  },
+  error: { en: 'Error: ', fr: 'Erreur : ', es: 'Error: ' },
+  pinning: { en: 'Pinning…', fr: 'Épinglage…', es: 'Fijando…' },
+  pinned: {
+    en: 'Pinned into Mnemosyne OS',
+    fr: 'Épinglé dans Mnemosyne OS',
+    es: 'Fijado en Mnemosyne OS',
+  },
+  pinFailed: {
+    en: 'Could not pin: ',
+    fr: 'Épinglage impossible : ',
+    es: 'No se pudo fijar: ',
+  },
+};
+
+/** Screen text in en, fr or es; any other language falls back to English. */
+export function uiText(key, lang = 'en') {
+  const row = UI_TEXT[key];
+  const code = String(lang || 'en')
+    .toLowerCase()
+    .slice(0, 2);
+  return row?.[code] || row?.en || key;
 }

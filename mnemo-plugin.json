@@ -183,10 +183,11 @@
         "rangeM": {
           "type": "number",
           "description": "Optional camera range in meters",
-          "minimum": 200,
-          "maximum": 30000000
+          "minimum": 100,
+          "maximum": 20000000
         }
-      }
+      },
+      "details": "Give exactly one place: locationId (a city preset), query (any place name) or latitude with longitude. With none, the action is refused."
     },
     {
       "id": "setLayers",
@@ -467,8 +468,8 @@
       ]
     },
     {
-      "id": "controlScene",
-      "summary": "List, play, stop or step through the saved director scenes.",
+      "id": "controlDirector",
+      "summary": "List, play, stop or step through the director's saved camera shots.",
       "effect": "write",
       "params": {
         "action": {
@@ -484,7 +485,7 @@
         },
         "sceneId": {
           "type": "string",
-          "description": "Scene to play (from action 'list')",
+          "description": "Shot sequence to play (from action 'list')",
           "maxLength": 120
         }
       },

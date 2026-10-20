@@ -5,6 +5,7 @@ import {
   checkedResult,
   compactStatus,
   phrase,
+  uiText,
 } from './bridgeModel.js';
 import {
   isCableLicenseAccepted,
@@ -30,7 +31,7 @@ function answerText(result) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** The person's language, from the host's MNEMO_CONFIG_UPDATE (see phrase in bridgeModel). */
-let hostLang = 'en';
+let hostLang = (typeof navigator !== 'undefined' && navigator.language) || 'en';
 
 /** The camera's world position now, or null before the globe exists. */
 function cameraPosition() {
@@ -63,15 +64,18 @@ async function waitForGev(timeoutMs = 30000) {
     await sleep(120);
   }
   if (!gev)
-    throw new Error(
-      "God's Eye View is still starting: try again in a few seconds",
-    );
+    // NOT_READY is the host's word for « wait »: it asks again each second
+    // within the call's budget, where a plain refusal paid a planner repair.
+    throw new Error("NOT_READY: God's Eye View is still starting");
   if (gevSettled) return gev;
 
   const restore = gev.styleManager.initialRestorePromise;
   if (restore && typeof restore.then === 'function') {
     await Promise.race([
-      restore.catch(() => undefined),
+      restore.catch((err) => {
+        // The start reports its own restore failure; the globe can still be driven.
+        console.warn('[gods-eye-view] opening view restore failed:', err);
+      }),
       sleep(Math.max(0, left())),
     ]);
   }
@@ -95,14 +99,22 @@ async function waitForGev(timeoutMs = 30000) {
   return gev;
 }
 
+/**
+ * One God's Eye View voice tool, its answer passed on as is. The HUD buttons
+ * use it and read the answer themselves; the agent door goes through
+ * runChecked, which turns a refusal into a throw.
+ */
 async function runGevTool(actionName, args = {}) {
   const gev = await waitForGev();
   return gev.voiceCommands.runner(actionName, args);
 }
 
-/** Normalize city/preset aliases to God's Eye View locationId or search query. */
+/**
+ * The flyTo arguments God's Eye View reads. No place named is a refusal:
+ * this used to fly to New York, a place nobody said (verifier, 2026-10-20).
+ */
 function normalizeFlyToArgs(params = {}) {
-  const rawId = String(params.locationId || params.presetId || '')
+  const rawId = String(params.locationId || '')
     .trim()
     .toLowerCase();
   const KNOWN_IDS = new Set([
@@ -123,33 +135,22 @@ function normalizeFlyToArgs(params = {}) {
     sanfrancisco: 'sf',
     washington: 'dc',
   };
+  const range = params.rangeM ? { rangeM: Number(params.rangeM) } : {};
   const mappedId = ALIAS_MAP[rawId] || rawId;
-  if (KNOWN_IDS.has(mappedId)) {
-    return {
-      locationId: mappedId,
-      viewMode: params.viewMode || 'city',
-      ...(params.rangeM ? { rangeM: Number(params.rangeM) } : {}),
-    };
-  }
+  if (KNOWN_IDS.has(mappedId)) return { locationId: mappedId, ...range };
   if (
     typeof params.latitude === 'number' &&
     typeof params.longitude === 'number'
   ) {
-    return {
-      latitude: params.latitude,
-      longitude: params.longitude,
-      viewMode: params.viewMode || 'custom',
-      ...(params.rangeM ? { rangeM: Number(params.rangeM) } : {}),
-    };
+    return { latitude: params.latitude, longitude: params.longitude, ...range };
   }
-  const query = String(
-    params.query || params.locationId || params.presetId || 'New York',
-  ).trim();
-  return {
-    query,
-    viewMode: params.viewMode || 'city',
-    ...(params.rangeM ? { rangeM: Number(params.rangeM) } : {}),
-  };
+  const query = String(params.query || params.locationId || '').trim();
+  if (!query) {
+    throw new Error(
+      'flyTo needs a place: locationId, query, or latitude and longitude',
+    );
+  }
+  return { query, ...range };
 }
 
 // God's Eye View's own layer vocabulary (ids + spoken aliases). A second
@@ -216,313 +217,256 @@ function measureFps(ms = 400) {
 
 /** Register Mnemosyne OS Agent Door actions. */
 function registerMnemoAgentDoor() {
-  return sdk.onAgentActions(
-    {
-      status: async (params = {}) => {
-        const gev = await waitForGev();
-        const viewState = await gev.voiceCommands.runner(
-          'get_current_view_state',
-          {},
-        );
-        const entityCtx = await gev.voiceCommands.runner(
-          'get_entity_context',
-          {},
-        );
-        const licensePacks = {
-          submarineCablesCcByNcSa30: isCableLicenseAccepted(),
-        };
-        // The full state is ~19 KB (~5,000 tokens) and an agent pays it on every
-        // question; the default answers what a person asks about the view.
-        if (params.full === true)
-          return {
-            app: "God's Eye View",
-            viewState,
-            entityContext: entityCtx,
-            licensePacks,
-          };
-        return compactStatus(
-          viewState,
-          entityCtx,
-          licensePacks,
-          await measureFps(),
-        );
-      },
-
-      flyTo: async (params = {}) => {
-        const args = normalizeFlyToArgs(params);
-        const before = cameraPosition();
-        const res = await runChecked('fly_to_location', args);
-        // An animated flight is frames: in a window hidden behind another one
-        // it waits. A place set directly has already moved the camera, so the
-        // notice is said only when nothing moved (measured 2026-10-19: a city
-        // preset froze over Austin, « Londres » landed with 0 frames).
-        const fps = await measureFps();
-        const frozen = fps === 0 && !cameraMoved(before, cameraPosition());
+  return sdk.onAgentActions({
+    status: async (params = {}) => {
+      const gev = await waitForGev();
+      const viewState = await gev.voiceCommands.runner(
+        'get_current_view_state',
+        {},
+      );
+      const entityCtx = await gev.voiceCommands.runner(
+        'get_entity_context',
+        {},
+      );
+      const licensePacks = {
+        submarineCablesCcByNcSa30: isCableLicenseAccepted(),
+      };
+      // The full state is ~19 KB (~5,000 tokens) and an agent pays it on every
+      // question; the default answers what a person asks about the view.
+      if (params.full === true)
         return {
-          ok: true,
-          action: 'fly_to_location',
-          args,
-          result: res,
-          ...(frozen
-            ? { onScreen: false, say: phrase('notOnScreen', hostLang) }
-            : {}),
+          app: "God's Eye View",
+          viewState,
+          entityContext: entityCtx,
+          licensePacks,
         };
-      },
+      return compactStatus(
+        viewState,
+        entityCtx,
+        licensePacks,
+        await measureFps(),
+      );
+    },
 
-      setLayers: async (params = {}) => {
-        // Accept either { layerId, enabled } or { layers: { flights: true, cctv: true } } or { enable: [...], disable: [...] }
-        const results = [];
-        if (params.layerId) {
-          const lid = normalizeLayerId(params.layerId);
-          if (
-            lid === CABLES_LAYER_ID &&
-            params.enabled !== false &&
-            !isCableLicenseAccepted()
-          ) {
-            window.__mnemoOpenLicenseModal?.('cables');
-            return {
-              ok: false,
-              requiresLicenseAcceptance: true,
-              packId: 'cables',
-              license: 'CC BY-NC-SA 3.0',
-              message:
-                'TeleGeography Submarine Cables requires user acceptance of the CC BY-NC-SA 3.0 license.',
-            };
-          }
-          const r = await runChecked('set_layer_visibility', {
-            layerId: lid,
-            enabled: params.enabled !== false,
-          });
-          results.push(r);
-        }
-        if (params.layers && typeof params.layers === 'object') {
-          for (const [k, v] of Object.entries(params.layers)) {
-            const lid = normalizeLayerId(k);
-            if (
-              lid === CABLES_LAYER_ID &&
-              Boolean(v) &&
-              !isCableLicenseAccepted()
-            ) {
-              window.__mnemoOpenLicenseModal?.('cables');
-              continue;
-            }
-            const r = await runChecked('set_layer_visibility', {
-              layerId: lid,
-              enabled: Boolean(v),
-            });
-            results.push(r);
-          }
-        }
-        if (Array.isArray(params.enable)) {
-          for (const item of params.enable) {
-            const lid = normalizeLayerId(item);
-            if (lid === CABLES_LAYER_ID && !isCableLicenseAccepted()) {
-              window.__mnemoOpenLicenseModal?.('cables');
-              continue;
-            }
-            const r = await runChecked('set_layer_visibility', {
-              layerId: lid,
-              enabled: true,
-            });
-            results.push(r);
-          }
-        }
-        if (Array.isArray(params.disable)) {
-          for (const item of params.disable) {
-            const lid = normalizeLayerId(item);
-            const r = await runChecked('set_layer_visibility', {
-              layerId: lid,
-              enabled: false,
-            });
-            results.push(r);
-          }
-        }
-        return { ok: true, results };
-      },
+    flyTo: async (params = {}) => {
+      const args = normalizeFlyToArgs(params);
+      const before = cameraPosition();
+      const res = await runChecked('fly_to_location', args);
+      // An animated flight is frames: in a window hidden behind another one
+      // it waits. A place set directly has already moved the camera, so the
+      // notice is said only when nothing moved (measured 2026-10-19: a city
+      // preset froze over Austin, « Londres » landed with 0 frames).
+      const fps = await measureFps();
+      const frozen = fps === 0 && !cameraMoved(before, cameraPosition());
+      return {
+        ok: true,
+        action: 'fly_to_location',
+        args,
+        result: res,
+        ...(frozen
+          ? { onScreen: false, say: phrase('notOnScreen', hostLang) }
+          : {}),
+      };
+    },
 
-      setOptics: async (params = {}) => {
-        const style = normalizeOpticsStyle(
-          params.style || params.mode || 'normal',
-        );
-        const res = await runChecked('set_visual_style', { style });
-        return { ok: true, style, result: res };
-      },
-
-      controlCctv: async (params = {}) => {
-        const action = String(params.action || 'nearest').trim();
-        const res = await runChecked('control_cctv', {
-          action,
-          ...(params.cameraQuery
-            ? { cameraQuery: String(params.cameraQuery) }
-            : {}),
-          ...(typeof params.enabled === 'boolean'
-            ? { enabled: params.enabled }
-            : {}),
-        });
-        return { ok: true, action, result: res };
-      },
-
-      controlRadio: async (params = {}) => {
-        const action = String(params.action || 'enable').trim();
-        const res = await runChecked('control_radio', {
-          action,
-          ...(params.category ? { category: String(params.category) } : {}),
-          ...(params.locationId
-            ? { locationId: String(params.locationId) }
-            : {}),
-          ...(params.country ? { country: String(params.country) } : {}),
-          ...(params.stationQuery
-            ? { stationQuery: String(params.stationQuery) }
-            : {}),
-          ...(typeof params.volume === 'number'
-            ? { volume: params.volume }
-            : {}),
-        });
-        return { ok: true, action, result: res };
-      },
-
-      selectNearestAircraft: async (params = {}) => {
-        const where = {
-          ...(params.locationId
-            ? { locationId: String(params.locationId) }
-            : {}),
-          ...(params.locationQuery
-            ? { locationQuery: String(params.locationQuery) }
-            : {}),
-        };
-        // No place named: "the nearest aircraft" is the one nearest to what the
-        // person is looking at, so the camera is the place.
-        if (!where.locationId && !where.locationQuery) {
-          const view = await runGevTool('get_current_view_state', {});
-          const cam = view?.camera;
-          if (
-            cam &&
-            Number.isFinite(cam.latitude) &&
-            Number.isFinite(cam.longitude)
-          ) {
-            where.latitude = cam.latitude;
-            where.longitude = cam.longitude;
-          }
-        }
-        const res = await runChecked('select_nearest_aircraft', {
-          layerId: params.layerId === 'military' ? 'military' : 'flights',
-          ...where,
-        });
-        return { ok: true, result: res };
-      },
-
-      trackEntity: async (params = {}) => {
-        if (params.stop) {
-          const res = await runChecked('stop_tracking', {});
-          return { ok: true, stopped: true, result: res };
-        }
-        const res = await runChecked('track_entity', {
-          query: String(params.query || ''),
-          ...(params.layerId
-            ? { layerId: normalizeLayerId(params.layerId) }
-            : {}),
-        });
-        return { ok: true, result: res };
-      },
-
-      controlCockpit: async (params = {}) => {
-        const action = String(params.action || 'enter').trim();
-        const res = await runChecked('control_cockpit', {
-          action,
-          ...(params.targetLayer
-            ? { targetLayer: String(params.targetLayer) }
-            : {}),
-        });
-        return { ok: true, action, result: res };
-      },
-
-      setCyberSonar: async (params = {}) => {
-        const enabled = params.enabled !== false;
-        const res = await runChecked('set_cyber_sonar', { enabled });
-        return { ok: true, enabled, result: res };
-      },
-
-      setContextMode: async (params = {}) => {
-        const mode = String(params.mode || 'contacts').trim();
-        const res = await runChecked('set_context_mode', { mode });
-        return { ok: true, mode, result: res };
-      },
-
-      showPanel: async (params = {}) => {
-        const panelId = String(params.panelId || 'cctv-panel').trim();
-        const open = params.open !== false;
-        const res = await runChecked('set_panel_open', { panelId, open });
-        return { ok: true, panelId, open, result: res };
-      },
-
-      controlScene: async (params = {}) => {
-        const action = String(params.action || 'list').trim();
-        const res = await runChecked('control_scene', {
-          action,
-          ...(params.sceneId ? { sceneId: String(params.sceneId) } : {}),
-        });
-        return { ok: true, action, result: res };
-      },
-
-      // An agent never accepts a licence for the person: this opens the
-      // licence window and the person clicks. Turning the pack OFF is safe and
-      // stays available to the agent.
-      acceptLicensePack: async (params = {}) => {
-        if (params.accept === false) {
-          setCableLicenseAccepted(false);
-          window.__mnemoSyncLicenseUi?.();
-          await runGevTool('set_layer_visibility', {
-            layerId: CABLES_LAYER_ID,
-            enabled: false,
-          });
-          return {
-            packId: 'cables',
-            accepted: false,
-            license: 'CC BY-NC-SA 3.0',
-          };
-        }
-        if (isCableLicenseAccepted()) {
-          await runChecked('set_layer_visibility', {
-            layerId: CABLES_LAYER_ID,
-            enabled: true,
-          });
-          return {
-            packId: 'cables',
-            accepted: true,
-            license: 'CC BY-NC-SA 3.0',
-          };
-        }
+    setLayers: async (params = {}) => {
+      const lid = normalizeLayerId(params.layerId);
+      const enabled = params.enabled !== false;
+      if (lid === CABLES_LAYER_ID && enabled && !isCableLicenseAccepted()) {
+        // A refusal, said to the person: returned as a value it was counted
+        // as done, kept as a recipe and replayed (verifier, 2026-10-20).
         window.__mnemoOpenLicenseModal?.('cables');
+        throw new Error(`TO_PERSON: ${phrase('licenceWindow', hostLang)}`);
+      }
+      const res = await runChecked('set_layer_visibility', {
+        layerId: lid,
+        enabled,
+      });
+      return { ok: true, layerId: lid, enabled, result: res };
+    },
+
+    setOptics: async (params = {}) => {
+      const style = normalizeOpticsStyle(params.style || 'normal');
+      const res = await runChecked('set_visual_style', { style });
+      return { ok: true, style, result: res };
+    },
+
+    controlCctv: async (params = {}) => {
+      const action = String(params.action || 'nearest').trim();
+      const res = await runChecked('control_cctv', {
+        action,
+        ...(params.cameraQuery
+          ? { cameraQuery: String(params.cameraQuery) }
+          : {}),
+        ...(typeof params.enabled === 'boolean'
+          ? { enabled: params.enabled }
+          : {}),
+      });
+      return { ok: true, action, result: res };
+    },
+
+    controlRadio: async (params = {}) => {
+      const action = String(params.action || 'enable').trim();
+      const res = await runChecked('control_radio', {
+        action,
+        ...(params.stationQuery
+          ? { stationQuery: String(params.stationQuery) }
+          : {}),
+      });
+      return { ok: true, action, result: res };
+    },
+
+    selectNearestAircraft: async (params = {}) => {
+      const where = {
+        ...(params.locationId ? { locationId: String(params.locationId) } : {}),
+        ...(params.locationQuery
+          ? { locationQuery: String(params.locationQuery) }
+          : {}),
+      };
+      // No place named: "the nearest aircraft" is the one nearest to what the
+      // person is looking at, so the camera is the place.
+      if (!where.locationId && !where.locationQuery) {
+        const view = await runGevTool('get_current_view_state', {});
+        const cam = view?.camera;
+        if (
+          cam &&
+          Number.isFinite(cam.latitude) &&
+          Number.isFinite(cam.longitude)
+        ) {
+          where.latitude = cam.latitude;
+          where.longitude = cam.longitude;
+        }
+      }
+      const res = await runChecked('select_nearest_aircraft', {
+        layerId: params.layerId === 'military' ? 'military' : 'flights',
+        ...where,
+      });
+      return { ok: true, result: res };
+    },
+
+    trackEntity: async (params = {}) => {
+      if (params.stop) {
+        const res = await runChecked('stop_tracking', {});
+        return { ok: true, stopped: true, result: res };
+      }
+      const res = await runChecked('track_entity', {
+        query: String(params.query || ''),
+        ...(params.layerId
+          ? { layerId: normalizeLayerId(params.layerId) }
+          : {}),
+      });
+      return { ok: true, result: res };
+    },
+
+    controlCockpit: async (params = {}) => {
+      const action = String(params.action || 'enter').trim();
+      const res = await runChecked('control_cockpit', {
+        action,
+        ...(params.targetLayer
+          ? { targetLayer: String(params.targetLayer) }
+          : {}),
+      });
+      return { ok: true, action, result: res };
+    },
+
+    setCyberSonar: async (params = {}) => {
+      const enabled = params.enabled !== false;
+      const res = await runChecked('set_cyber_sonar', { enabled });
+      return { ok: true, enabled, result: res };
+    },
+
+    setContextMode: async (params = {}) => {
+      const mode = String(params.mode || 'contacts').trim();
+      const res = await runChecked('set_context_mode', { mode });
+      return { ok: true, mode, result: res };
+    },
+
+    showPanel: async (params = {}) => {
+      const panelId = String(params.panelId || 'cctv-panel').trim();
+      const open = params.open !== false;
+      const res = await runChecked('set_panel_open', { panelId, open });
+      return { ok: true, panelId, open, result: res };
+    },
+
+    // « scene » in an action id made the orb offer this globe for Vitrine
+    // Studio's scenes; the director's shots are what this action plays.
+    controlDirector: async (params = {}) => {
+      const action = String(params.action || 'list').trim();
+      const res = await runChecked('control_scene', {
+        action,
+        ...(params.sceneId ? { sceneId: String(params.sceneId) } : {}),
+      });
+      return { ok: true, action, result: res };
+    },
+
+    // An agent never accepts a licence for the person: this opens the
+    // licence window and the person clicks. Turning the pack OFF is safe and
+    // stays available to the agent.
+    acceptLicensePack: async (params = {}) => {
+      if (params.accept === false) {
+        setCableLicenseAccepted(false);
+        window.__mnemoSyncLicenseUi?.();
+        await runGevTool('set_layer_visibility', {
+          layerId: CABLES_LAYER_ID,
+          enabled: false,
+        });
         return {
           packId: 'cables',
           accepted: false,
-          licenceWindowOpen: true,
           license: 'CC BY-NC-SA 3.0',
-          say: phrase('licenceWindow', hostLang),
         };
-      },
-
-      queryMemory: async (params = {}) => {
-        const q = String(
-          params.query || 'geopolitical maritime aviation intelligence',
-        ).trim();
-        // `sdk.query` takes the question only: the host decides which vaults
-        // answer (the person's attention), and replies with one answer.
-        const answer = answerText(await sdk.query(q));
-        window.__mnemoShowMemoryResults?.(q, answer);
+      }
+      if (isCableLicenseAccepted()) {
+        await runChecked('set_layer_visibility', {
+          layerId: CABLES_LAYER_ID,
+          enabled: true,
+        });
         return {
-          ok: true,
-          query: q,
-          answer,
-          empty: !answer,
+          packId: 'cables',
+          accepted: true,
+          license: 'CC BY-NC-SA 3.0',
         };
-      },
+      }
+      window.__mnemoOpenLicenseModal?.('cables');
+      return {
+        packId: 'cables',
+        accepted: false,
+        licenceWindowOpen: true,
+        license: 'CC BY-NC-SA 3.0',
+        say: phrase('licenceWindow', hostLang),
+      };
     },
-    { appVersion: '1.0.0' },
-  );
+
+    queryMemory: async (params = {}) => {
+      const q = String(params.query || '').trim();
+      if (!q) throw new Error('queryMemory needs a question');
+      // `sdk.query` takes the question only: the host decides which vaults
+      // answer (the person's attention), and replies with one answer.
+      const answer = answerText(await sdk.query(q));
+      window.__mnemoShowMemoryResults?.(q, answer);
+      return {
+        ok: true,
+        query: q,
+        answer,
+        empty: !answer,
+      };
+    },
+  });
 }
 
 /** Inject Mnemosyne OS Liquid Glass Bridge UI (License Gate + Vault Memory Seam). */
+/** Screen text in the person's language (see UI_TEXT). */
+const ui = (key) => uiText(key, hostLang);
+
+/** A HUD click handler whose failure is logged (the globe may still be starting). */
+const logged = (name, fn) => async (ev) => {
+  try {
+    await fn(ev);
+  } catch (err) {
+    console.warn(`[gods-eye-view] ${name} failed:`, err);
+  }
+};
+
 function mountMnemoHudOverlay() {
   if (document.getElementById('mnemo-argus-bridge')) return;
 
@@ -682,17 +626,17 @@ function mountMnemoHudOverlay() {
   bar.id = 'mnemo-argus-bridge';
   bar.innerHTML = `
     <span class="mnemo-bridge-badge">GOD'S EYE VIEW · MNEMOSYNE OS</span>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-radar" title="Activer Radar ADS-B + Satellites + Webcams CCTV">
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-radar" title="${ui('radarTitle')}">
       ✈️🎥 Live Pack
     </button>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cockpit" title="Entrer / Sortir du mode Cockpit 3D à bord d'un avion en vol">
-      🛩️ Cockpit 3D
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cockpit" title="${ui('cockpitTitle')}">
+      🛩️ ${ui('cockpit')}
     </button>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cables" title="Pack Câbles Sous-Marins (Licence CC BY-NC-SA 3.0)">
-      📜 Câbles CC BY-NC
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cables" title="${ui('cablesTitle')}">
+      📜 ${ui('cables')}
     </button>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-memory" title="Interroger ou épingler dans la mémoire Mnemosyne OS">
-      🧠 Mémoire
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-memory" title="${ui('memoryTitle')}">
+      🧠 ${ui('memory')}
     </button>
   `;
   document.body.appendChild(bar);
@@ -715,10 +659,10 @@ function mountMnemoHudOverlay() {
     if (!btn) return;
     if (isCableLicenseAccepted()) {
       btn.classList.add('active');
-      btn.textContent = '📜 Câbles CC BY-NC (Actif)';
+      btn.textContent = `📜 ${ui('cablesOn')}`;
     } else {
       btn.classList.remove('active');
-      btn.textContent = '📜 Câbles CC BY-NC';
+      btn.textContent = `📜 ${ui('cables')}`;
     }
   }
   window.__mnemoSyncLicenseUi = syncLicenseUi;
@@ -728,28 +672,21 @@ function mountMnemoHudOverlay() {
     const accepted = isCableLicenseAccepted();
     backdrop.innerHTML = `
       <div class="mnemo-modal-card">
-        <h3>📜 Pack Données Externes — Licence Utilisateur</h3>
-        <p>
-          Le cœur de <strong>God's Eye View</strong> (par Bilawal Sidhu) est distribué sous licence <strong>MIT</strong>.
-          Les tracés mondiaux de câbles sous-marins sont publiés par <strong>TeleGeography</strong> sous licence
-          <strong>Creative Commons CC BY-NC-SA 3.0 (Usage Non-Commercial)</strong>.
-          Mnemosyne OS ne vend ni n'embarque ces fichiers dans le dépôt : vous pouvez les charger directement à la demande pour votre usage personnel.
-        </p>
+        <h3>📜 ${ui('licenceHeading')}</h3>
+        <p>${ui('licenceBody')}</p>
         <div class="mnemo-license-box">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <strong style="font-size:13px;color:#fff;">TeleGeography Submarine Cable Map (712 câbles & stations)</strong>
+            <strong style="font-size:13px;">TeleGeography Submarine Cable Map</strong>
             <span class="mnemo-bridge-badge">CC BY-NC-SA 3.0</span>
           </div>
-          <p style="margin:0;font-size:11.5px;">
-            Source : TeleGeography (submarinecablemap.com). En activant ce pack, vous acceptez les termes CC BY-NC-SA 3.0 pour votre consultation personnelle dans Mnemosyne OS.
-          </p>
+          <p style="margin:0;font-size:11.5px;">${ui('licenceSource')}</p>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:10px;">
-          <button type="button" class="mnemo-action-secondary" id="mnemo-modal-close">Fermer</button>
+          <button type="button" class="mnemo-action-secondary" id="mnemo-modal-close">${ui('close')}</button>
           ${
             accepted
-              ? '<button type="button" class="mnemo-action-secondary" id="mnemo-license-revoke">Désactiver le pack</button>'
-              : '<button type="button" class="mnemo-action-primary" id="mnemo-license-accept">J\'accepte la licence CC BY-NC-SA 3.0 · Charger les câbles</button>'
+              ? `<button type="button" class="mnemo-action-secondary" id="mnemo-license-revoke">${ui('revoke')}</button>`
+              : `<button type="button" class="mnemo-action-primary" id="mnemo-license-accept">${ui('accept')}</button>`
           }
         </div>
       </div>
@@ -758,9 +695,9 @@ function mountMnemoHudOverlay() {
     document
       .getElementById('mnemo-modal-close')
       ?.addEventListener('click', closeModal);
-    document
-      .getElementById('mnemo-license-accept')
-      ?.addEventListener('click', async () => {
+    document.getElementById('mnemo-license-accept')?.addEventListener(
+      'click',
+      logged('licence accept', async () => {
         setCableLicenseAccepted(true);
         syncLicenseUi();
         closeModal();
@@ -768,10 +705,11 @@ function mountMnemoHudOverlay() {
           layerId: CABLES_LAYER_ID,
           enabled: true,
         });
-      });
-    document
-      .getElementById('mnemo-license-revoke')
-      ?.addEventListener('click', async () => {
+      }),
+    );
+    document.getElementById('mnemo-license-revoke')?.addEventListener(
+      'click',
+      logged('licence revoke', async () => {
         setCableLicenseAccepted(false);
         syncLicenseUi();
         closeModal();
@@ -779,26 +717,30 @@ function mountMnemoHudOverlay() {
           layerId: CABLES_LAYER_ID,
           enabled: false,
         });
-      });
+      }),
+    );
   };
 
   function openMemoryModal(initialQuery = '', initialAnswer = null) {
     backdrop.innerHTML = `
       <div class="mnemo-modal-card">
-        <h3>🧠 Pont Mémoire Mnemosyne OS</h3>
-        <p>Interrogez votre mémoire Mnemosyne OS ou épinglez la vue actuelle.</p>
+        <h3>🧠 ${ui('memoryHeading')}</h3>
+        <p>${ui('memoryIntro')}</p>
         <div style="display:flex;gap:8px;">
-          <input type="text" class="mnemo-mem-input" id="mnemo-mem-q" placeholder="Rechercher dans vos notes (ex: aviation, câble, satellite, port...)" value="${initialQuery.replace(/"/g, '&quot;')}" style="margin-bottom:0;flex:1;" />
-          <button type="button" class="mnemo-action-primary" id="mnemo-mem-run">Chercher</button>
+          <input type="text" class="mnemo-mem-input" id="mnemo-mem-q" placeholder="${ui('memoryPlaceholder')}" style="margin-bottom:0;flex:1;" />
+          <button type="button" class="mnemo-action-primary" id="mnemo-mem-run">${ui('search')}</button>
         </div>
         <div class="mnemo-mem-results" id="mnemo-mem-list"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
-          <button type="button" class="mnemo-action-secondary" id="mnemo-mem-pin">📌 Épingler la vue actuelle dans Mnemosyne</button>
-          <button type="button" class="mnemo-action-secondary" id="mnemo-modal-close">Fermer</button>
+          <button type="button" class="mnemo-action-secondary" id="mnemo-mem-pin">📌 ${ui('pin')}</button>
+          <button type="button" class="mnemo-action-secondary" id="mnemo-modal-close">${ui('close')}</button>
         </div>
       </div>
     `;
     backdrop.classList.add('open');
+    // Set as a property, never spliced into the HTML: no escaping to get wrong.
+    const input = document.getElementById('mnemo-mem-q');
+    if (input) input.value = initialQuery;
     const listEl = document.getElementById('mnemo-mem-list');
     // `null` = nothing asked yet; '' = asked, and memory had nothing to say.
     const renderAnswer = (answer) => {
@@ -806,9 +748,8 @@ function mountMnemoHudOverlay() {
       const box = document.createElement('div');
       box.className = 'mnemo-mem-hit';
       box.style.whiteSpace = 'pre-wrap';
-      if (answer === null) box.textContent = 'Posez une question ci-dessus.';
-      else if (!answer)
-        box.textContent = 'Votre mémoire ne contient rien sur ce sujet.';
+      if (answer === null) box.textContent = ui('askAbove');
+      else if (!answer) box.textContent = ui('nothingFound');
       else box.textContent = answer;
       listEl.replaceChildren(box);
     };
@@ -822,19 +763,20 @@ function mountMnemoHudOverlay() {
       ?.addEventListener('click', async () => {
         const q = document.getElementById('mnemo-mem-q')?.value?.trim();
         if (!q) return;
-        listEl.innerHTML = `<div class="mnemo-mem-hit">Recherche dans Mnemosyne OS...</div>`;
+        listEl.textContent = ui('searching');
         try {
           renderAnswer(answerText(await sdk.query(q)));
         } catch (err) {
           console.warn('[gods-eye-view] memory query failed:', err);
-          if (listEl) listEl.textContent = `Erreur : ${err?.message || err}`;
+          if (listEl)
+            listEl.textContent = `${ui('error')}${err?.message || err}`;
         }
       });
     document
       .getElementById('mnemo-mem-pin')
       ?.addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
-        btn.textContent = '⏳ Épinglage...';
+        btn.textContent = `⏳ ${ui('pinning')}`;
         try {
           const viewState = await runGevTool('get_current_view_state', {});
           const entityCtx = await runGevTool('get_entity_context', {});
@@ -847,10 +789,10 @@ function mountMnemoHudOverlay() {
             JSON.stringify({ viewState, entityCtx }, null, 2),
             'SOCIAL_NODE',
           );
-          btn.textContent = '✅ Épinglé dans Mnemosyne !';
+          btn.textContent = `✅ ${ui('pinned')}`;
         } catch (err) {
           console.warn('[gods-eye-view] pin into memory failed:', err);
-          btn.textContent = `⚠️ Épinglage impossible : ${err?.message || err}`;
+          btn.textContent = `⚠️ ${ui('pinFailed')}${err?.message || err}`;
         }
       });
   }
@@ -865,9 +807,9 @@ function mountMnemoHudOverlay() {
     openMemoryModal();
   });
 
-  document
-    .getElementById('mnemo-btn-radar')
-    ?.addEventListener('click', async () => {
+  document.getElementById('mnemo-btn-radar')?.addEventListener(
+    'click',
+    logged('live pack', async () => {
       for (const lid of [
         'flights',
         'military',
@@ -881,11 +823,12 @@ function mountMnemoHudOverlay() {
         });
       }
       await runGevTool('set_panel_open', { panelId: 'cctv-panel', open: true });
-    });
+    }),
+  );
 
-  document
-    .getElementById('mnemo-btn-cockpit')
-    ?.addEventListener('click', async (ev) => {
+  document.getElementById('mnemo-btn-cockpit')?.addEventListener(
+    'click',
+    logged('cockpit', async (ev) => {
       const btn = ev.currentTarget;
       const gev = await waitForGev();
       const cockpitState = gev.styleManager?.getCockpitState?.();
@@ -899,7 +842,8 @@ function mountMnemoHudOverlay() {
           targetLayer: 'flights',
         });
       }
-    });
+    }),
+  );
 }
 
 /** Auto-activate sensational feeds on first launch inside Mnemosyne OS. */
@@ -979,10 +923,10 @@ function startMnemoBridge() {
     // Storage blocked: the first-run modal shows, nothing else breaks.
     console.warn('[gods-eye-view] sessionStorage unavailable:', err);
   }
+  // Registered ONCE. The host's relay keeps an early subscription; a second
+  // one (on load, on each theme or zoom update) dropped the call in flight:
+  // « the cartridge window was closed or reloaded » (verifier, 2026-10-20).
   ensureAgentDoorSubscribed();
-  window.addEventListener('load', () => {
-    setTimeout(ensureAgentDoorSubscribed, 120);
-  });
   window.addEventListener('message', (event) => {
     if (
       event.source !== window.parent ||
@@ -991,7 +935,6 @@ function startMnemoBridge() {
       return;
     if (typeof event.data.lang === 'string' && event.data.lang)
       hostLang = event.data.lang;
-    if (event.data.tokens) setTimeout(ensureAgentDoorSubscribed, 60);
   });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', mountMnemoHudOverlay, {

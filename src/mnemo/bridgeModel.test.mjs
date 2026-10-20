@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   PHRASES,
+  UI_TEXT,
+  uiText,
   cameraMoved,
   checkedResult,
   compactStatus,
@@ -98,8 +100,22 @@ test('the short status keeps what a person asks about and says when the window i
   ]);
   assert.deepEqual(s.layersOff, ['satellites']);
   assert.equal(s.onScreen, false);
+  // Never `say`: the orb would read God's Eye View's English sentence aloud.
+  assert.equal('say' in s, false);
+  assert.equal(s.summary, 'Camera 600 m up.');
   assert.equal(s.framesPerSecond, 0);
   assert.ok(JSON.stringify(s).length < 1500, 'the short status stays short');
   // Not measured is not « off screen ».
   assert.equal(compactStatus(viewState, {}, {}, null).onScreen, null);
+});
+
+test('every screen text of the bridge exists in en, fr and es, and another language reads English', () => {
+  for (const [key, row] of Object.entries(UI_TEXT)) {
+    for (const lang of ['en', 'fr', 'es'])
+      assert.ok(row[lang], `${key}.${lang}`);
+    assert.equal(uiText(key, 'es-MX'), row.es);
+    assert.equal(uiText(key, 'de'), row.en);
+  }
+  // An unknown key shows itself rather than an empty button.
+  assert.equal(uiText('noSuchKey', 'fr'), 'noSuchKey');
 });
