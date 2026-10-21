@@ -102,9 +102,23 @@ export function isEditingSpaceTarget(target) {
 /** Protects text entry and modified shortcuts from push-to-talk arbitration. */
 export function shouldHandlePushToTalkKeyDown(event) {
   if (!isPushToTalkKey(event) || event.defaultPrevented) return false;
+  if (isVoiceTurnedOffByPage(event.target)) return false;
   if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
     return false;
   return !isEditingSpaceTarget(event.target);
+}
+
+/**
+ * Whether the page turned voice off with `<html data-gev-voice="off">`. An
+ * embedding host that keeps the microphone to itself sets it, so holding Space
+ * does not open a session (or pause the radio) that can never hear anything.
+ * @param {EventTarget|null} target
+ * @returns {boolean}
+ */
+export function isVoiceTurnedOffByPage(target) {
+  const doc =
+    target?.ownerDocument ?? (target?.documentElement ? target : null);
+  return doc?.documentElement?.dataset?.gevVoice === 'off';
 }
 
 /**

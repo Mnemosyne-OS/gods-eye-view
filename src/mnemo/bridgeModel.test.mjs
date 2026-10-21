@@ -7,6 +7,7 @@ import {
   cameraMoved,
   checkedResult,
   compactStatus,
+  isFramedByHost,
   phrase,
 } from './bridgeModel.js';
 
@@ -118,4 +119,19 @@ test('every screen text of the bridge exists in en, fr and es, and another langu
   }
   // An unknown key shows itself rather than an empty button.
   assert.equal(uiText('noSuchKey', 'fr'), 'noSuchKey');
+});
+
+test('a page is framed by a host only when its parent is another window', () => {
+  const own = {};
+  own.parent = own;
+  assert.equal(isFramedByHost(own), false);
+  assert.equal(isFramedByHost({ parent: {} }), true);
+  assert.equal(isFramedByHost(null), false);
+  // A parent that cannot be read is still a frame, never « on its own ».
+  const sealed = Object.defineProperty({}, 'parent', {
+    get() {
+      throw new Error('cross-origin');
+    },
+  });
+  assert.equal(isFramedByHost(sealed), true);
 });

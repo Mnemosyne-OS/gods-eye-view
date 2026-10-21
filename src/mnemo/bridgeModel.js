@@ -125,6 +125,16 @@ export const UI_TEXT = {
     es: 'Preguntar a tu memoria de Mnemosyne OS, o fijar esta vista en ella',
   },
   memory: { en: 'Memory', fr: 'Mémoire', es: 'Memoria' },
+  orb: {
+    en: 'Voice: talk to the orb',
+    fr: "Voix : parle à l'orbe",
+    es: 'Voz: habla con el orbe',
+  },
+  orbTitle: {
+    en: "Inside Mnemosyne OS, the orb listens and drives the globe: say « fly to Tokyo » or « show live planes ». God's Eye View's own voice agent is off here, because the microphone stays with Mnemosyne OS.",
+    fr: "Dans Mnemosyne OS, c'est l'orbe qui écoute et pilote le globe : dis « vole vers Tokyo » ou « montre les avions en direct ». L'agent vocal de God's Eye View est coupé ici, parce que le micro reste à Mnemosyne OS.",
+    es: "En Mnemosyne OS, el orbe escucha y maneja el globo: di « vuela a Tokio » o « muestra los aviones en directo ». El agente de voz de God's Eye View está apagado aquí, porque el micrófono se queda en Mnemosyne OS.",
+  },
   licenceHeading: {
     en: 'Submarine cables: the licence',
     fr: 'Câbles sous-marins : la licence',
@@ -208,4 +218,19 @@ export function uiText(key, lang = 'en') {
     .toLowerCase()
     .slice(0, 2);
   return row?.[code] || row?.en || key;
+}
+
+/**
+ * Whether this page runs inside a host frame (a Mnemosyne OS window) rather
+ * than in a browser tab of its own. A window that cannot read its parent is
+ * still framed: only `parent === self` means « on its own ».
+ */
+export function isFramedByHost(win) {
+  if (!win) return false;
+  try {
+    return win.parent != null && win.parent !== win;
+  } catch (err) {
+    console.warn('[gods-eye-view] could not read window.parent:', err);
+    return true;
+  }
 }

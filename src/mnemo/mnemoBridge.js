@@ -4,6 +4,7 @@ import {
   cameraMoved,
   checkedResult,
   compactStatus,
+  isFramedByHost,
   phrase,
   uiText,
 } from './bridgeModel.js';
@@ -470,6 +471,13 @@ const logged = (name, fn) => async (ev) => {
 function mountMnemoHudOverlay() {
   if (document.getElementById('mnemo-argus-bridge')) return;
 
+  // Inside Mnemosyne OS the microphone stays with the host (its frame only
+  // allows fullscreen, doc 123): GEV's own voice agent could never hear, and
+  // its 'permission denied' card hid the globe. The orb drives the globe
+  // through the agent door instead, so the panel goes and a hint replaces it.
+  const handVoiceToHost = isFramedByHost(window);
+  if (handVoiceToHost) document.documentElement.dataset.gevVoice = 'off';
+
   const style = document.createElement('style');
   style.textContent = `
     #mnemo-argus-bridge {
@@ -516,6 +524,12 @@ function mountMnemoHudOverlay() {
       display: inline-flex;
       align-items: center;
       gap: 5px;
+    }
+    html[data-gev-voice='off'] #gev-voice-control {
+      display: none !important;
+    }
+    .mnemo-bridge-hint {
+      cursor: help;
     }
     .mnemo-bridge-btn:hover {
       background: rgba(255, 255, 255, 0.12);
@@ -638,6 +652,11 @@ function mountMnemoHudOverlay() {
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-memory" title="${ui('memoryTitle')}">
       🧠 ${ui('memory')}
     </button>
+    ${
+      handVoiceToHost
+        ? `<span class="mnemo-bridge-btn mnemo-bridge-hint" id="mnemo-voice-orb" title="${ui('orbTitle')}">🎙️ ${ui('orb')}</span>`
+        : ''
+    }
   `;
   document.body.appendChild(bar);
 
