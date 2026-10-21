@@ -8,6 +8,7 @@ import {
   checkedResult,
   compactStatus,
   isFramedByHost,
+  orbFailureKey,
   orbLabel,
   phrase,
 } from './bridgeModel.js';
@@ -143,4 +144,12 @@ test('the orb button says the name the person gave their assistant', () => {
   // Not said yet (or an older host): the orb, never an empty name.
   assert.equal(orbLabel(null, 'fr'), "Parler à l'orbe");
   assert.equal(orbLabel('   ', 'es'), 'Hablar con el orbe');
+});
+
+test('a refused orb.summon says its own next step', () => {
+  assert.equal(orbFailureKey(new Error('ORB_UNHEARD')), 'orbNoBoardTitle');
+  assert.equal(orbFailureKey(new Error('NOT_FROM_A_GESTURE')), 'orbNoGestureTitle');
+  assert.equal(orbFailureKey(new Error('Host did not reply to "orb.summon" within 5s')), 'orbTimeoutTitle');
+  // Only a host without the action is « an older version ».
+  assert.equal(orbFailureKey(new Error('Action orb.summon is not supported or not permitted.')), 'orbFailedTitle');
 });

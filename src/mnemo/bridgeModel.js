@@ -125,6 +125,21 @@ export const UI_TEXT = {
     fr: "Cette version de Mnemosyne OS ne sait pas encore appeler l'orbe depuis une app. Utilise le bouton de l'orbe dans le rail.",
     es: 'Esta versión de Mnemosyne OS aún no puede llamar al orbe desde una app. Usa el botón del orbe en la barra.',
   },
+  orbNoBoardTitle: {
+    en: 'This window has no board for the orb. Put God\'s Eye View back on the board, or use the orb button on the rail.',
+    fr: "Cette fenêtre n'a pas de plateau pour l'orbe. Remets God's Eye View sur le plateau, ou utilise le bouton de l'orbe dans le rail.",
+    es: 'Esta ventana no tiene tablero para el orbe. Vuelve a poner God\'s Eye View en el tablero, o usa el botón del orbe en la barra.',
+  },
+  orbNoGestureTitle: {
+    en: 'The orb comes on a click on this button.',
+    fr: "L'orbe vient sur un clic sur ce bouton.",
+    es: 'El orbe llega con un clic en este botón.',
+  },
+  orbTimeoutTitle: {
+    en: 'Mnemosyne OS did not answer in time. Try again.',
+    fr: "Mnemosyne OS n'a pas répondu à temps. Réessaie.",
+    es: 'Mnemosyne OS no respondió a tiempo. Vuelve a intentarlo.',
+  },
   orbTitle: {
     en: "Inside Mnemosyne OS, the orb listens and drives the globe: say « fly to Tokyo » or « show live planes ». God's Eye View's own voice agent is off here, because the microphone stays with Mnemosyne OS.",
     fr: "Dans Mnemosyne OS, c'est l'orbe qui écoute et pilote le globe : dis « vole vers Tokyo » ou « montre les avions en direct ». L'agent vocal de God's Eye View est coupé ici, parce que le micro reste à Mnemosyne OS.",
@@ -238,4 +253,18 @@ export function isFramedByHost(win) {
 export function orbLabel(name, lang = 'en') {
   const clean = typeof name === 'string' ? name.trim().slice(0, 40) : '';
   return clean ? uiText('orbNamed', lang).replace('{name}', clean) : uiText('orb', lang);
+}
+
+/**
+ * Which sentence a refused orb.summon gets: each refusal has its own next
+ * step. « This version cannot » was said for all of them, and was false in a
+ * detached window, whose host knows the action but has no board (verifier,
+ * 2026-10-21).
+ */
+export function orbFailureKey(err) {
+  const msg = String(err?.message ?? err ?? '');
+  if (/ORB_UNHEARD/.test(msg)) return 'orbNoBoardTitle';
+  if (/NOT_FROM_A_GESTURE/.test(msg)) return 'orbNoGestureTitle';
+  if (/did not reply/i.test(msg)) return 'orbTimeoutTitle';
+  return 'orbFailedTitle';
 }

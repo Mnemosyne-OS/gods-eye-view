@@ -5,6 +5,7 @@ import {
   checkedResult,
   compactStatus,
   isFramedByHost,
+  orbFailureKey,
   orbLabel,
   phrase,
   uiText,
@@ -950,11 +951,11 @@ function mountMnemoHudOverlay() {
       orbBtn.dataset.state = 'idle';
       if (label) label.textContent = orbLabel(assistantName, hostLang);
     } catch (err) {
-      // An older host has no orb.summon: say so on the button, never nothing.
+      // Said on the button, never nothing; each refusal its own sentence.
       console.warn('[gods-eye-view] the orb did not come:', err);
       orbBtn.dataset.state = 'failed';
       if (label) label.textContent = ui('orbFailed');
-      orbBtn.title = `${ui('orbFailedTitle')} (${err?.message || err})`;
+      orbBtn.title = `${ui(orbFailureKey(err))} (${err?.message || err})`;
     }
   });
 
