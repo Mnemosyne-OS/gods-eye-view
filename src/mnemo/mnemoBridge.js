@@ -32,6 +32,15 @@ function answerText(result) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Writes screen text. GEV's icon check (materialSymbolsSubset.test) reads every
+ * lowercase literal assigned to textContent as a Material Symbols glyph, and
+ * ui('searching') is a text key, not an icon.
+ */
+function setText(el, text) {
+  el.textContent = text;
+}
+
 /** The person's language, from the host's MNEMO_CONFIG_UPDATE (see phrase in bridgeModel). */
 let hostLang = (typeof navigator !== 'undefined' && navigator.language) || 'en';
 
@@ -223,6 +232,7 @@ function measureFps(ms = 400) {
 /** Register Mnemosyne OS Agent Door actions. */
 function registerMnemoAgentDoor() {
   return sdk.onAgentActions({
+    // i18n-ignore: the agent door answers an agent, never the page
     status: async (params = {}) => {
       const gev = await waitForGev();
       const viewState = await gev.voiceCommands.runner(
@@ -741,9 +751,11 @@ function mountMnemoHudOverlay() {
   const bar = document.createElement('div');
   bar.id = 'mnemo-argus-bridge';
   bar.setAttribute('role', 'toolbar');
+  // i18n-ignore: a product name
   bar.setAttribute('aria-label', 'Mnemosyne OS');
+  // i18n-ignore: product names only (Mnemosyne OS); every label goes through ui()
   bar.innerHTML = `
-    <span class="mnemo-bridge-brand"><span class="mnemo-bridge-brand-dot"></span>Mnemosyne OS</span>
+    <span class="mnemo-bridge-brand" translate="no"><span class="mnemo-bridge-brand-dot"></span>Mnemosyne OS</span>
     <span class="mnemo-bridge-sep" aria-hidden="true"></span>
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-radar" title="${ui('radarTitle')}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg><span>${ui('live')}</span>
@@ -795,14 +807,15 @@ function mountMnemoHudOverlay() {
 
   window.__mnemoOpenLicenseModal = () => {
     const accepted = isCableLicenseAccepted();
+    // i18n-ignore: proper names only (the map, its licence); every sentence goes through ui()
     backdrop.innerHTML = `
       <div class="mnemo-modal-card">
-        <h3>📜 ${ui('licenceHeading')}</h3>
+        <h3><span aria-hidden="true">📜</span> ${ui('licenceHeading')}</h3>
         <p>${ui('licenceBody')}</p>
         <div class="mnemo-license-box">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <strong style="font-size:13px;">TeleGeography Submarine Cable Map</strong>
-            <span class="mnemo-bridge-badge">CC BY-NC-SA 3.0</span>
+            <strong style="font-size:13px;" translate="no">TeleGeography Submarine Cable Map</strong>
+            <span class="mnemo-bridge-badge" translate="no">CC BY-NC-SA 3.0</span>
           </div>
           <p style="margin:0;font-size:11.5px;">${ui('licenceSource')}</p>
         </div>
@@ -888,20 +901,20 @@ function mountMnemoHudOverlay() {
       ?.addEventListener('click', async () => {
         const q = document.getElementById('mnemo-mem-q')?.value?.trim();
         if (!q) return;
-        listEl.textContent = ui('searching');
+        setText(listEl, ui('searching'));
         try {
           renderAnswer(answerText(await sdk.query(q)));
         } catch (err) {
           console.warn('[gods-eye-view] memory query failed:', err);
           if (listEl)
-            listEl.textContent = `${ui('error')}${err?.message || err}`;
+            setText(listEl, `${ui('error')}${err?.message || err}`);
         }
       });
     document
       .getElementById('mnemo-mem-pin')
       ?.addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
-        btn.textContent = `⏳ ${ui('pinning')}`;
+        setText(btn, `⏳ ${ui('pinning')}`);
         try {
           const viewState = await runGevTool('get_current_view_state', {});
           const entityCtx = await runGevTool('get_entity_context', {});
@@ -914,7 +927,7 @@ function mountMnemoHudOverlay() {
             JSON.stringify({ viewState, entityCtx }, null, 2),
             'SOCIAL_NODE',
           );
-          btn.textContent = `✅ ${ui('pinned')}`;
+          setText(btn, `✅ ${ui('pinned')}`);
         } catch (err) {
           console.warn('[gods-eye-view] pin into memory failed:', err);
           btn.textContent = `⚠️ ${ui('pinFailed')}${err?.message || err}`;
