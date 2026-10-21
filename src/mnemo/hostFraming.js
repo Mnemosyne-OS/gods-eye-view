@@ -44,3 +44,15 @@ export function hostHeaders(headers) {
   }
   return out;
 }
+
+/** Whether a request is for the HTML document (the page a window frames). */
+export function isDocumentRequest(url) {
+  let path;
+  try {
+    path = new URL(url || '/', 'http://localhost').pathname;
+  } catch (err) {
+    console.warn('[gods-eye-view] unreadable request url:', err);
+    return false;
+  }
+  return path === '/' || path.endsWith('.html');
+}

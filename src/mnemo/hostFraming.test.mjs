@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BROWSER_HEADERS } from '../../build/vite.js';
-import { hostCsp, hostHeaders } from './hostFraming.js';
+import { hostCsp, hostHeaders, isDocumentRequest } from './hostFraming.js';
 
 test('a Mnemosyne window may frame the cartridge server, nothing else is loosened', () => {
   const headers = hostHeaders(BROWSER_HEADERS);
@@ -22,4 +22,11 @@ test('plain-http media is admitted, once, and only where webcams need it', () =>
 test('upstream still refuses every frame on its own server', () => {
   assert.equal(BROWSER_HEADERS['X-Frame-Options'], 'DENY');
   assert.match(BROWSER_HEADERS['Content-Security-Policy'], /frame-ancestors 'none'/);
+});
+
+test('only the HTML document is always sent whole', () => {
+  assert.equal(isDocumentRequest('/index.html?widget=mnemo-argus-main&lang=fr'), true);
+  assert.equal(isDocumentRequest('/'), true);
+  assert.equal(isDocumentRequest('/src/main.js?v=1'), false);
+  assert.equal(isDocumentRequest('/cesium/Workers/x.js'), false);
 });
