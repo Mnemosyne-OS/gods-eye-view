@@ -5,6 +5,7 @@ import {
   checkedResult,
   compactStatus,
   isFramedByHost,
+  orbLabel,
   phrase,
   uiText,
 } from './bridgeModel.js';
@@ -33,6 +34,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** The person's language, from the host's MNEMO_CONFIG_UPDATE (see phrase in bridgeModel). */
 let hostLang = (typeof navigator !== 'undefined' && navigator.language) || 'en';
+
+/** The assistant's given name, from the host's MNEMO_CONFIG_UPDATE; null until it says. */
+let assistantName = null;
 
 /** The camera's world position now, or null before the globe exists. */
 function cameraPosition() {
@@ -757,7 +761,7 @@ function mountMnemoHudOverlay() {
       handVoiceToHost
         ? `<span class="mnemo-bridge-sep" aria-hidden="true"></span>
     <button type="button" class="mnemo-bridge-btn mnemo-bridge-orb" id="mnemo-voice-orb" data-state="idle" title="${ui('orbTitle')}">
-      <span class="mnemo-bridge-orb-dot" aria-hidden="true"></span><span class="mnemo-bridge-orb-label">${ui('orb')}</span>
+      <span class="mnemo-bridge-orb-dot" aria-hidden="true"></span><span class="mnemo-bridge-orb-label">${orbLabel(assistantName, hostLang)}</span>
     </button>`
         : ''
     }
@@ -931,7 +935,7 @@ function mountMnemoHudOverlay() {
     try {
       await sdk.invoke('orb.summon', {}, 5000);
       orbBtn.dataset.state = 'idle';
-      if (label) label.textContent = ui('orb');
+      if (label) label.textContent = orbLabel(assistantName, hostLang);
     } catch (err) {
       // An older host has no orb.summon: say so on the button, never nothing.
       console.warn('[gods-eye-view] the orb did not come:', err);
@@ -1073,6 +1077,14 @@ function startMnemoBridge() {
       return;
     if (typeof event.data.lang === 'string' && event.data.lang)
       hostLang = event.data.lang;
+    if (typeof event.data.assistantName === 'string') {
+      assistantName = event.data.assistantName;
+      const btn = document.getElementById('mnemo-voice-orb');
+      const label = btn?.querySelector('.mnemo-bridge-orb-label');
+      // A failed call keeps saying so until the next click.
+      if (label && btn.dataset.state !== 'failed')
+        label.textContent = orbLabel(assistantName, hostLang);
+    }
   });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', mountMnemoHudOverlay, {

@@ -118,6 +118,7 @@ export const UI_TEXT = {
   },
   memory: { en: 'Memory', fr: 'Mémoire', es: 'Memoria' },
   orb: { en: 'Talk to the orb', fr: "Parler à l'orbe", es: 'Hablar con el orbe' },
+  orbNamed: { en: 'Talk to {name}', fr: 'Parler à {name}', es: 'Hablar con {name}' },
   orbFailed: { en: 'Orb unavailable', fr: 'Orbe indisponible', es: 'Orbe no disponible' },
   orbFailedTitle: {
     en: 'This version of Mnemosyne OS cannot call the orb from an app yet. Use the orb button on the rail.',
@@ -227,4 +228,14 @@ export function isFramedByHost(win) {
     console.warn('[gods-eye-view] could not read window.parent:', err);
     return true;
   }
+}
+
+/**
+ * The orb button's words: the name the person gave their assistant
+ * (MNEMO_CONFIG_UPDATE.assistantName), or « the orb » while the host has not
+ * said it (an older host never will).
+ */
+export function orbLabel(name, lang = 'en') {
+  const clean = typeof name === 'string' ? name.trim().slice(0, 40) : '';
+  return clean ? uiText('orbNamed', lang).replace('{name}', clean) : uiText('orb', lang);
 }

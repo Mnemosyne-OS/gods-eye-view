@@ -8,6 +8,7 @@ import {
   checkedResult,
   compactStatus,
   isFramedByHost,
+  orbLabel,
   phrase,
 } from './bridgeModel.js';
 
@@ -134,4 +135,12 @@ test('a page is framed by a host only when its parent is another window', () => 
     },
   });
   assert.equal(isFramedByHost(sealed), true);
+});
+
+test('the orb button says the name the person gave their assistant', () => {
+  assert.equal(orbLabel('Irina', 'fr-FR'), 'Parler à Irina');
+  assert.equal(orbLabel('  Irina ', 'en'), 'Talk to Irina');
+  // Not said yet (or an older host): the orb, never an empty name.
+  assert.equal(orbLabel(null, 'fr'), "Parler à l'orbe");
+  assert.equal(orbLabel('   ', 'es'), 'Hablar con el orbe');
 });
