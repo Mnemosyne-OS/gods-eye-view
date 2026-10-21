@@ -103,32 +103,26 @@ export const UI_TEXT = {
     fr: 'Entrer dans le cockpit 3D d’un avion en vol, ou en sortir',
     es: 'Entrar en la cabina 3D de un avión en vuelo, o salir',
   },
-  cockpit: { en: 'Cockpit 3D', fr: 'Cockpit 3D', es: 'Cabina 3D' },
+  live: { en: 'Live', fr: 'En direct', es: 'En directo' },
+  cockpit: { en: 'Cockpit', fr: 'Cockpit', es: 'Cabina' },
   cablesTitle: {
     en: 'Submarine cables (licence CC BY-NC-SA 3.0)',
     fr: 'Câbles sous-marins (licence CC BY-NC-SA 3.0)',
     es: 'Cables submarinos (licencia CC BY-NC-SA 3.0)',
   },
-  cables: {
-    en: 'Cables CC BY-NC',
-    fr: 'Câbles CC BY-NC',
-    es: 'Cables CC BY-NC',
-  },
-  cablesOn: {
-    en: 'Cables CC BY-NC (on)',
-    fr: 'Câbles CC BY-NC (actifs)',
-    es: 'Cables CC BY-NC (activos)',
-  },
+  cables: { en: 'Cables', fr: 'Câbles', es: 'Cables' },
   memoryTitle: {
     en: 'Ask your Mnemosyne OS memory, or pin this view into it',
     fr: 'Interroger ta mémoire Mnemosyne OS, ou y épingler cette vue',
     es: 'Preguntar a tu memoria de Mnemosyne OS, o fijar esta vista en ella',
   },
   memory: { en: 'Memory', fr: 'Mémoire', es: 'Memoria' },
-  orb: {
-    en: 'Voice: talk to the orb',
-    fr: "Voix : parle à l'orbe",
-    es: 'Voz: habla con el orbe',
+  orb: { en: 'Talk to the orb', fr: "Parler à l'orbe", es: 'Hablar con el orbe' },
+  orbFailed: { en: 'Orb unavailable', fr: 'Orbe indisponible', es: 'Orbe no disponible' },
+  orbFailedTitle: {
+    en: 'This version of Mnemosyne OS cannot call the orb from an app yet. Use the orb button on the rail.',
+    fr: "Cette version de Mnemosyne OS ne sait pas encore appeler l'orbe depuis une app. Utilise le bouton de l'orbe dans le rail.",
+    es: 'Esta versión de Mnemosyne OS aún no puede llamar al orbe desde una app. Usa el botón del orbe en la barra.',
   },
   orbTitle: {
     en: "Inside Mnemosyne OS, the orb listens and drives the globe: say « fly to Tokyo » or « show live planes ». God's Eye View's own voice agent is off here, because the microphone stays with Mnemosyne OS.",

@@ -480,25 +480,145 @@ function mountMnemoHudOverlay() {
 
   const style = document.createElement('style');
   style.textContent = `
+    /* Liquid glass, one line, icons with short words (style-cartouche):
+       what is ON is green with a check dot, the orb is the green-tinted main
+       action. Every colour is a token on the bar, so the modal keeps its own. */
     #mnemo-argus-bridge {
+      --mb-fill: color-mix(in srgb, #fff 7%, transparent);
+      --mb-fill-hover: color-mix(in srgb, #fff 13%, transparent);
+      --mb-edge: color-mix(in srgb, #fff 16%, transparent);
+      --mb-shine: color-mix(in srgb, #fff 24%, transparent);
+      --mb-text: #e8eef6;
+      --mb-muted: #93a3b8;
+      --mb-chosen: #3fa66a;
       position: fixed;
       bottom: 14px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9500;
+      max-width: calc(100vw - 32px);
+      overflow-x: auto;
+      scrollbar-width: none;
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
+      gap: 6px;
+      padding: 6px;
       border-radius: 999px;
-      background: linear-gradient(135deg, rgba(10, 16, 28, 0.86) 0%, rgba(6, 10, 18, 0.94) 100%);
-      backdrop-filter: blur(18px) saturate(160%);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+      background: color-mix(in srgb, #08101c 62%, transparent);
+      backdrop-filter: blur(20px) saturate(170%);
+      -webkit-backdrop-filter: blur(20px) saturate(170%);
+      border: 1px solid var(--mb-edge);
+      box-shadow: inset 0 1px 0 var(--mb-shine), 0 14px 34px -12px rgba(0, 0, 0, 0.7);
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      color: #f1f5f9;
+      color: var(--mb-text);
       pointer-events: auto;
+      white-space: nowrap;
     }
+    #mnemo-argus-bridge::-webkit-scrollbar { display: none; }
+    .mnemo-bridge-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 10px 0 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--mb-muted);
+    }
+    .mnemo-bridge-brand-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mb-chosen);
+      box-shadow: 0 0 8px var(--mb-chosen);
+    }
+    .mnemo-bridge-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--mb-edge);
+      flex: none;
+    }
+    .mnemo-bridge-btn {
+      appearance: none;
+      position: relative;
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 34px;
+      padding: 0 14px 0 11px;
+      border-radius: 999px;
+      border: 1px solid var(--mb-edge);
+      background: var(--mb-fill);
+      box-shadow: inset 0 1px 0 var(--mb-shine);
+      color: var(--mb-text);
+      font: 600 12.5px/1 'Inter', system-ui, -apple-system, sans-serif;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .mnemo-bridge-btn svg {
+      width: 16px;
+      height: 16px;
+      flex: none;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.9;
+    }
+    .mnemo-bridge-btn:hover { background: var(--mb-fill-hover); }
+    .mnemo-bridge-btn:focus-visible { outline: 2px solid var(--mb-chosen); outline-offset: 2px; }
+    .mnemo-bridge-btn.active {
+      background: color-mix(in srgb, var(--mb-chosen) 22%, var(--mb-fill));
+      border-color: color-mix(in srgb, var(--mb-chosen) 70%, transparent);
+      box-shadow: inset 0 1px 0 var(--mb-shine), 0 0 14px -4px var(--mb-chosen);
+      color: #eafff1;
+    }
+    .mnemo-bridge-btn.active::after {
+      content: '✓';
+      position: absolute;
+      top: -4px;
+      right: -3px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--mb-chosen);
+      color: #fff;
+      font-size: 9px;
+      line-height: 15px;
+      text-align: center;
+      box-shadow: 0 0 0 2px #0b1320;
+    }
+    .mnemo-bridge-orb {
+      background: color-mix(in srgb, var(--mb-chosen) 20%, var(--mb-fill));
+      border-color: color-mix(in srgb, var(--mb-chosen) 55%, transparent);
+    }
+    .mnemo-bridge-orb:hover {
+      background: color-mix(in srgb, var(--mb-chosen) 30%, var(--mb-fill));
+    }
+    .mnemo-bridge-orb-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #d9fbe8 0%, #5fd393 38%, #1f7a4b 100%);
+      box-shadow: 0 0 10px #4ade80;
+      flex: none;
+    }
+    .mnemo-bridge-orb[data-state='calling'] .mnemo-bridge-orb-dot {
+      animation: mnemo-orb-pulse 0.9s ease-in-out infinite;
+    }
+    .mnemo-bridge-orb[data-state='failed'] {
+      background: color-mix(in srgb, #e5484d 18%, var(--mb-fill));
+      border-color: color-mix(in srgb, #e5484d 55%, transparent);
+    }
+    @keyframes mnemo-orb-pulse {
+      50% { transform: scale(0.72); opacity: 0.6; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mnemo-bridge-orb[data-state='calling'] .mnemo-bridge-orb-dot { animation: none; }
+    }
+    /* The licence modal's tag keeps this pill. */
     .mnemo-bridge-badge {
       font-size: 10px;
       font-weight: 700;
@@ -510,35 +630,13 @@ function mountMnemoHudOverlay() {
       background: rgba(16, 185, 129, 0.14);
       border: 1px solid rgba(16, 185, 129, 0.35);
     }
-    .mnemo-bridge-btn {
-      appearance: none;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.05);
-      color: #e2e8f0;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 999px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
+    /* GEV's own dock (location, visual presets) sits on the same bottom
+       line: lift it above this bar instead of hiding it under. */
+    #command-dock {
+      bottom: 72px !important;
     }
     html[data-gev-voice='off'] #gev-voice-control {
       display: none !important;
-    }
-    .mnemo-bridge-hint {
-      cursor: help;
-    }
-    .mnemo-bridge-btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.28);
-    }
-    .mnemo-bridge-btn.active {
-      background: rgba(16, 185, 129, 0.18);
-      border-color: rgba(52, 211, 153, 0.55);
-      color: #a7f3d0;
     }
     #mnemo-argus-modal-backdrop {
       position: fixed;
@@ -638,23 +736,29 @@ function mountMnemoHudOverlay() {
 
   const bar = document.createElement('div');
   bar.id = 'mnemo-argus-bridge';
+  bar.setAttribute('role', 'toolbar');
+  bar.setAttribute('aria-label', 'Mnemosyne OS');
   bar.innerHTML = `
-    <span class="mnemo-bridge-badge">GOD'S EYE VIEW · MNEMOSYNE OS</span>
+    <span class="mnemo-bridge-brand"><span class="mnemo-bridge-brand-dot"></span>Mnemosyne OS</span>
+    <span class="mnemo-bridge-sep" aria-hidden="true"></span>
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-radar" title="${ui('radarTitle')}">
-      ✈️🎥 Live Pack
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg><span>${ui('live')}</span>
     </button>
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cockpit" title="${ui('cockpitTitle')}">
-      🛩️ ${ui('cockpit')}
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span>${ui('cockpit')}</span>
     </button>
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cables" title="${ui('cablesTitle')}">
-      📜 ${ui('cables')}
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15c3 0 3-6 6-6s3 6 6 6 3-6 6-6"/><path d="M3 20h18"/></svg><span>${ui('cables')}</span>
     </button>
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-memory" title="${ui('memoryTitle')}">
-      🧠 ${ui('memory')}
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h1V3z"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3h-1V3z"/></svg><span>${ui('memory')}</span>
     </button>
     ${
       handVoiceToHost
-        ? `<span class="mnemo-bridge-btn mnemo-bridge-hint" id="mnemo-voice-orb" title="${ui('orbTitle')}">🎙️ ${ui('orb')}</span>`
+        ? `<span class="mnemo-bridge-sep" aria-hidden="true"></span>
+    <button type="button" class="mnemo-bridge-btn mnemo-bridge-orb" id="mnemo-voice-orb" data-state="idle" title="${ui('orbTitle')}">
+      <span class="mnemo-bridge-orb-dot" aria-hidden="true"></span><span class="mnemo-bridge-orb-label">${ui('orb')}</span>
+    </button>`
         : ''
     }
   `;
@@ -678,10 +782,8 @@ function mountMnemoHudOverlay() {
     if (!btn) return;
     if (isCableLicenseAccepted()) {
       btn.classList.add('active');
-      btn.textContent = `📜 ${ui('cablesOn')}`;
     } else {
       btn.classList.remove('active');
-      btn.textContent = `📜 ${ui('cables')}`;
     }
   }
   window.__mnemoSyncLicenseUi = syncLicenseUi;
@@ -820,6 +922,23 @@ function mountMnemoHudOverlay() {
 
   document.getElementById('mnemo-btn-cables')?.addEventListener('click', () => {
     window.__mnemoOpenLicenseModal?.('cables');
+  });
+
+  const orbBtn = document.getElementById('mnemo-voice-orb');
+  orbBtn?.addEventListener('click', async () => {
+    const label = orbBtn.querySelector('.mnemo-bridge-orb-label');
+    orbBtn.dataset.state = 'calling';
+    try {
+      await sdk.invoke('orb.summon', {}, 5000);
+      orbBtn.dataset.state = 'idle';
+      if (label) label.textContent = ui('orb');
+    } catch (err) {
+      // An older host has no orb.summon: say so on the button, never nothing.
+      console.warn('[gods-eye-view] the orb did not come:', err);
+      orbBtn.dataset.state = 'failed';
+      if (label) label.textContent = ui('orbFailed');
+      orbBtn.title = `${ui('orbFailedTitle')} (${err?.message || err})`;
+    }
   });
 
   document.getElementById('mnemo-btn-memory')?.addEventListener('click', () => {
