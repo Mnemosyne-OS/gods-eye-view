@@ -1,5 +1,14 @@
 import { PACK_LIMITS, validateAssetPath } from './manifest.js';
 
+/**
+ * Schemes a pack may fetch assets from.
+ * - http(s): the standalone Vite / hosted app
+ * - mnemo-plugin: an installed Mnemosyne OS cartridge (Hub tarball), whose
+ *   files the host serves under that scheme — not http, so a http-only check
+ *   crashes startup with "Asset source requires an explicit HTTP(S)…"
+ */
+const ASSET_DIRECTORY_PROTOCOLS = new Set(['https:', 'http:', 'mnemo-plugin:']);
+
 /** Register a fixed asset directory. Scene files cannot replace its origin or escape its path. */
 export function createAssetDirectorySource({
   baseUrl,
@@ -7,7 +16,7 @@ export function createAssetDirectorySource({
 }) {
   const base = new URL(baseUrl);
   if (
-    !['https:', 'http:'].includes(base.protocol) ||
+    !ASSET_DIRECTORY_PROTOCOLS.has(base.protocol) ||
     base.username ||
     base.password ||
     base.search ||

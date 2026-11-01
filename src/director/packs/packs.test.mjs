@@ -141,6 +141,26 @@ test('directory source confines paths, strips credentials and rejects redirects,
   await assert.rejects(missing({ path: 'a' }), /unavailable/);
 });
 
+test('directory source accepts the Mnemosyne cartridge scheme and still rejects file URLs', () => {
+  assert.doesNotThrow(() =>
+    createAssetDirectorySource({
+      baseUrl:
+        'mnemo-plugin://app/@mnemosyne-plugins/mnemo-gods-eye-view/scene-assets/',
+    }),
+  );
+  assert.throws(
+    () => createAssetDirectorySource({ baseUrl: 'file:///tmp/scene-assets/' }),
+    /explicit HTTP\(S\) directory URL/,
+  );
+  assert.throws(
+    () =>
+      createAssetDirectorySource({
+        baseUrl: 'mnemo-plugin://app/@mnemosyne-plugins/mnemo-gods-eye-view/scene-assets',
+      }),
+    /explicit HTTP\(S\) directory URL/,
+  );
+});
+
 test('GeoJSON preserves stable geometry IDs but never properties or remote style hints', () => {
   const data = {
     type: 'FeatureCollection',
