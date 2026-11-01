@@ -28,8 +28,17 @@ export default defineConfig(async (env) => {
   const config = await (typeof standalone === 'function' ? standalone(env) : standalone);
   return {
     ...config,
+    // Installed cartridges are served from <plugin>/dist under mnemo-plugin:// —
+    // absolute `/assets/...` paths 404 there. Dev tolerates relative base too.
+    base: './',
     plugins: [freshDocumentHeaders(), ...(config.plugins ?? [])],
     server: { ...config.server, headers: hostHeaders(config.server?.headers) },
     preview: { ...config.preview, headers: hostHeaders(config.preview?.headers) },
+    build: {
+      ...config.build,
+      // Host protocol handler reads <cartridge>/dist only (main/index.ts).
+      outDir: 'dist',
+      emptyOutDir: true,
+    },
   };
 });

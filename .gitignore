@@ -1,5 +1,7 @@
 node_modules
-dist
+# Mnemosyne OS cartridge build lives in dist/ and MUST be committed: Hub
+# installs download this branch's tarball and never run vite on the user's
+# machine. Local `npm run build:cartridge` refreshes it before a push.
 # Credential files. `.env` alone is not enough: Vite's loadEnv (see
 # server/standalone/vite.config.js) and scripts/setup-doctor.mjs both read the
 # full dotenv ladder — .env, .env.local, .env.<mode> and .env.<mode>.local —

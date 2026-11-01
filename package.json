@@ -42,6 +42,7 @@
     "changelog:check": "node scripts/assemble-changelog.mjs --check",
     "dev": "vite",
     "dev:cartridge": "vite --config vite.mnemo.config.js --host 127.0.0.1 --port 5239 --strictPort",
+    "build:cartridge": "vite build --config vite.mnemo.config.js",
     "dev:secure": "./scripts/dev-secure.sh",
     "opensky:import": "./scripts/opensky-import-client.sh",
     "build": "vite build",
