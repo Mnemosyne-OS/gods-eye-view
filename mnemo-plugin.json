@@ -2,10 +2,12 @@
   "id": "@mnemosyne-plugins/mnemo-gods-eye-view",
   "name": "@mnemosyne-plugins/mnemo-gods-eye-view",
   "displayName": "God's Eye View",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "category": "Intelligence",
   "vendor": "Bilawal Sidhu (MIT)",
   "license": "MIT",
+  "repository": "https://github.com/Mnemosyne-OS/gods-eye-view",
+  "updateStrategy": "git",
   "description": "God's Eye View by Bilawal Sidhu: a real-time 3D console of planet Earth (CesiumJS) with live aircraft (ADS-B), 4,000+ live webcams, ships (AIS), satellites (CelesTrak), world radio and image filters, connected to Mnemosyne OS.",
   "descriptionI18n": {
     "en": "God's Eye View by Bilawal Sidhu: a real-time 3D console of planet Earth (CesiumJS) with live aircraft (ADS-B), 4,000+ live webcams, ships (AIS), satellites (CelesTrak), world radio and image filters, connected to Mnemosyne OS.",
