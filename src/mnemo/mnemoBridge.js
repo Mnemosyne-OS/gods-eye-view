@@ -1,9 +1,13 @@
 import { MnemoCartridgeSDK } from '@mnemosyne_os/cartridge-sdk';
+import { getLocale } from '../i18n/index.js';
 import { voiceLayerAliasMap } from '../voice/layerManifest.js';
 import {
+  bridgeUiLang,
   cameraMoved,
   checkedResult,
   compactStatus,
+  initialBridgeLang,
+  isCartridgeInstall,
   isFramedByHost,
   orbFailureKey,
   orbLabel,
@@ -42,11 +46,52 @@ function setText(el, text) {
   el.textContent = text;
 }
 
-/** The person's language, from the host's MNEMO_CONFIG_UPDATE (see phrase in bridgeModel). */
-let hostLang = (typeof navigator !== 'undefined' && navigator.language) || 'en';
+/**
+ * The person's language for the Mnemosyne chrome. Starts from the app locale
+ * (or navigator), then follows MNEMO_CONFIG_UPDATE.lang from the host.
+ */
+let hostLang = initialBridgeLang({
+  appLocale: typeof getLocale === 'function' ? getLocale() : undefined,
+  navigatorLanguage:
+    typeof navigator !== 'undefined' ? navigator.language : undefined,
+});
 
 /** The assistant's given name, from the host's MNEMO_CONFIG_UPDATE; null until it says. */
 let assistantName = null;
+
+/** Layers that need the Vite `/api` proxy — unavailable under mnemo-plugin://. */
+const API_BACKED_SENSATIONAL_LAYERS = Object.freeze([
+  'flights',
+  'military',
+  'satellites',
+  'cctv',
+]);
+
+/** Layers the Live pack can turn on without a local API server. */
+const KEYLESS_SENSATIONAL_LAYERS = Object.freeze(['earthquakes']);
+
+function sensationalLayerIds() {
+  return isCartridgeInstall()
+    ? [...KEYLESS_SENSATIONAL_LAYERS]
+    : [...API_BACKED_SENSATIONAL_LAYERS, ...KEYLESS_SENSATIONAL_LAYERS];
+}
+
+/** Re-apply bar labels after the host language (or assistant name) changes. */
+function refreshBridgeChrome() {
+  const root = document.getElementById('mnemo-argus-bridge');
+  if (!root) return;
+  for (const el of root.querySelectorAll('[data-mnemo-title]')) {
+    el.title = ui(el.getAttribute('data-mnemo-title'));
+  }
+  for (const el of root.querySelectorAll('[data-mnemo-label]')) {
+    el.textContent = ui(el.getAttribute('data-mnemo-label'));
+  }
+  const orbBtn = document.getElementById('mnemo-voice-orb');
+  const label = orbBtn?.querySelector('.mnemo-bridge-orb-label');
+  if (label && orbBtn.dataset.state !== 'failed') {
+    label.textContent = orbLabel(assistantName, hostLang);
+  }
+}
 
 /** The camera's world position now, or null before the globe exists. */
 function cameraPosition() {
@@ -486,6 +531,15 @@ const logged = (name, fn) => async (ev) => {
 function mountMnemoHudOverlay() {
   if (document.getElementById('mnemo-argus-bridge')) return;
 
+  // initMnemoBridge() runs before createStandaloneApplication() sets the
+  // locale; re-read here so the bar matches the globe (fr/es/en), not the
+  // module-load default. The host's MNEMO_CONFIG_UPDATE may still override.
+  hostLang = initialBridgeLang({
+    appLocale: getLocale(),
+    navigatorLanguage:
+      typeof navigator !== 'undefined' ? navigator.language : undefined,
+  });
+
   // Inside Mnemosyne OS the microphone stays with the host (its frame only
   // allows fullscreen, doc 123): GEV's own voice agent could never hear, and
   // its 'permission denied' card hid the globe. The orb drives the globe
@@ -758,22 +812,22 @@ function mountMnemoHudOverlay() {
   bar.innerHTML = `
     <span class="mnemo-bridge-brand" translate="no"><span class="mnemo-bridge-brand-dot"></span>Mnemosyne OS</span>
     <span class="mnemo-bridge-sep" aria-hidden="true"></span>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-radar" title="${ui('radarTitle')}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg><span>${ui('live')}</span>
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-radar" data-mnemo-title="radarTitle" title="${ui('radarTitle')}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg><span data-mnemo-label="live">${ui('live')}</span>
     </button>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cockpit" title="${ui('cockpitTitle')}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span>${ui('cockpit')}</span>
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cockpit" data-mnemo-title="cockpitTitle" title="${ui('cockpitTitle')}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span data-mnemo-label="cockpit">${ui('cockpit')}</span>
     </button>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cables" title="${ui('cablesTitle')}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15c3 0 3-6 6-6s3 6 6 6 3-6 6-6"/><path d="M3 20h18"/></svg><span>${ui('cables')}</span>
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cables" data-mnemo-title="cablesTitle" title="${ui('cablesTitle')}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15c3 0 3-6 6-6s3 6 6 6 3-6 6-6"/><path d="M3 20h18"/></svg><span data-mnemo-label="cables">${ui('cables')}</span>
     </button>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-memory" title="${ui('memoryTitle')}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h1V3z"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3h-1V3z"/></svg><span>${ui('memory')}</span>
+    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-memory" data-mnemo-title="memoryTitle" title="${ui('memoryTitle')}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h1V3z"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3h-1V3z"/></svg><span data-mnemo-label="memory">${ui('memory')}</span>
     </button>
     ${
       handVoiceToHost
         ? `<span class="mnemo-bridge-sep" aria-hidden="true"></span>
-    <button type="button" class="mnemo-bridge-btn mnemo-bridge-orb" id="mnemo-voice-orb" data-state="idle" title="${ui('orbTitle')}">
+    <button type="button" class="mnemo-bridge-btn mnemo-bridge-orb" id="mnemo-voice-orb" data-state="idle" data-mnemo-title="orbTitle" title="${ui('orbTitle')}">
       <span class="mnemo-bridge-orb-dot" aria-hidden="true"></span><span class="mnemo-bridge-orb-label">${orbLabel(assistantName, hostLang)}</span>
     </button>`
         : ''
@@ -966,19 +1020,26 @@ function mountMnemoHudOverlay() {
   document.getElementById('mnemo-btn-radar')?.addEventListener(
     'click',
     logged('live pack', async () => {
-      for (const lid of [
-        'flights',
-        'military',
-        'satellites',
-        'cctv',
-        'earthquakes',
-      ]) {
+      const lids = sensationalLayerIds();
+      if (isCartridgeInstall()) {
+        console.warn(
+          '[gods-eye-view] Hub install has no /api proxy: Live only enables',
+          lids.join(', '),
+          `(skipped ${API_BACKED_SENSATIONAL_LAYERS.join(', ')})`,
+        );
+      }
+      for (const lid of lids) {
         await runGevTool('set_layer_visibility', {
           layerId: lid,
           enabled: true,
         });
       }
-      await runGevTool('set_panel_open', { panelId: 'cctv-panel', open: true });
+      if (!isCartridgeInstall()) {
+        await runGevTool('set_panel_open', {
+          panelId: 'cctv-panel',
+          open: true,
+        });
+      }
     }),
   );
 
@@ -1002,20 +1063,25 @@ function mountMnemoHudOverlay() {
   );
 }
 
-/** Auto-activate sensational feeds on first launch inside Mnemosyne OS. */
+/**
+ * Auto-activate sensational feeds on first launch inside Mnemosyne OS.
+ * Under a Hub install (`mnemo-plugin://`) there is no Vite `/api` proxy, so
+ * flights/military/satellites/cctv only produce load failures — skip them.
+ */
 async function autoBootSensationalFeeds() {
   try {
     const gev = await waitForGev();
     const bootedKey = 'mnemo.argus.sensationalBoot.v1';
     if (!sessionStorage.getItem(bootedKey)) {
       sessionStorage.setItem(bootedKey, '1');
-      for (const lid of [
-        'flights',
-        'military',
-        'satellites',
-        'cctv',
-        'earthquakes',
-      ]) {
+      const lids = sensationalLayerIds();
+      if (isCartridgeInstall()) {
+        console.info(
+          '[gods-eye-view] Hub install: auto-boot only',
+          lids.join(', '),
+        );
+      }
+      for (const lid of lids) {
         await gev.voiceCommands.runner('set_layer_visibility', {
           layerId: lid,
           enabled: true,
@@ -1089,16 +1155,21 @@ function startMnemoBridge() {
       event.data?.type !== 'MNEMO_CONFIG_UPDATE'
     )
       return;
-    if (typeof event.data.lang === 'string' && event.data.lang)
-      hostLang = event.data.lang;
+    let chromeDirty = false;
+    if (typeof event.data.lang === 'string' && event.data.lang) {
+      const next = bridgeUiLang(event.data.lang);
+      if (next !== hostLang) {
+        hostLang = next;
+        chromeDirty = true;
+      }
+    }
     if (typeof event.data.assistantName === 'string') {
       assistantName = event.data.assistantName;
-      const btn = document.getElementById('mnemo-voice-orb');
-      const label = btn?.querySelector('.mnemo-bridge-orb-label');
-      // A failed call keeps saying so until the next click.
-      if (label && btn.dataset.state !== 'failed')
-        label.textContent = orbLabel(assistantName, hostLang);
+      chromeDirty = true;
     }
+    // The bar is mounted once from the first language guess; when the host
+    // later sends its real lang, every label (not only the orb) must follow.
+    if (chromeDirty) refreshBridgeChrome();
   });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', mountMnemoHudOverlay, {

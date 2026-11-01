@@ -4,6 +4,9 @@ import {
   PHRASES,
   UI_TEXT,
   uiText,
+  bridgeUiLang,
+  initialBridgeLang,
+  isCartridgeInstall,
   cameraMoved,
   checkedResult,
   compactStatus,
@@ -121,6 +124,30 @@ test('every screen text of the bridge exists in en, fr and es, and another langu
   }
   // An unknown key shows itself rather than an empty button.
   assert.equal(uiText('noSuchKey', 'fr'), 'noSuchKey');
+});
+
+test('bridge language prefers the app locale over a Spanish navigator tag', () => {
+  assert.equal(bridgeUiLang('fr-CA'), 'fr');
+  assert.equal(bridgeUiLang('ja'), 'en');
+  assert.equal(
+    initialBridgeLang({ appLocale: 'fr', navigatorLanguage: 'es-ES' }),
+    'fr',
+  );
+  assert.equal(
+    initialBridgeLang({ appLocale: 'ja', navigatorLanguage: 'es-ES' }),
+    'es',
+  );
+  assert.equal(initialBridgeLang({}), 'en');
+});
+
+test('a Hub cartridge install is detected from the mnemo-plugin scheme', () => {
+  assert.equal(
+    isCartridgeInstall(
+      'mnemo-plugin://app/@mnemosyne-plugins/mnemo-gods-eye-view/index.html',
+    ),
+    true,
+  );
+  assert.equal(isCartridgeInstall('http://127.0.0.1:5239/'), false);
 });
 
 test('a page is framed by a host only when its parent is another window', () => {

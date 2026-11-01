@@ -87,10 +87,47 @@ export function compactStatus(viewState, entityCtx, licensePacks, fps = null) {
   };
 }
 
+/** Languages the bridge chrome (bar, licence, memory) is written in. */
+export const BRIDGE_UI_LANGS = Object.freeze(['en', 'fr', 'es']);
+
+/**
+ * Map a language tag to a bridge chrome language. Unknown tags → English
+ * (never Spanish-by-accident from a partial navigator match).
+ */
+export function bridgeUiLang(tag) {
+  const code = String(tag || 'en')
+    .toLowerCase()
+    .slice(0, 2);
+  return BRIDGE_UI_LANGS.includes(code) ? code : 'en';
+}
+
+/**
+ * Language for the bar before the host's MNEMO_CONFIG_UPDATE arrives.
+ * Prefer the app's own locale (what the person set in God's Eye View) over
+ * navigator.language: a Windows/browser list with `es` first painted the bar
+ * in Spanish while the globe UI was already French (2026-11-01).
+ */
+export function initialBridgeLang({ appLocale, navigatorLanguage } = {}) {
+  for (const tag of [appLocale, navigatorLanguage]) {
+    if (!tag) continue;
+    const code = String(tag).toLowerCase().slice(0, 2);
+    if (BRIDGE_UI_LANGS.includes(code)) return code;
+  }
+  return 'en';
+}
+
+/** True when the page is an installed Hub cartridge (no Vite `/api` proxy). */
+export function isCartridgeInstall(href = globalThis.location?.href) {
+  try {
+    return new URL(String(href || '')).protocol === 'mnemo-plugin:';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The bridge's own screen text (HUD bar, licence window, memory window) in
- * the three languages the host ships first. God's Eye View has no French:
- * an English or Spanish speaker saw these in French before (2026-10-20).
+ * the three languages the host ships first.
  */
 export const UI_TEXT = {
   radarTitle: {
