@@ -64,6 +64,13 @@ function output(cmd, args, opts = {}) {
   return res.stdout;
 }
 
+/**
+ * Packages the server loads in a way esbuild cannot follow:
+ * server/providers/vessels/ais-live.js asks `createRequire(...)('ws')` for the
+ * live ship feed (measured 2026-11-06 by comparing a pruned and a full stage).
+ */
+export const UNSEEN_SERVER_PACKAGES = Object.freeze(['ws']);
+
 /** Bare package names the server imports, measured with esbuild. */
 export function serverPackages(metafile) {
   const names = new Set();
@@ -76,6 +83,7 @@ export function serverPackages(metafile) {
           : parts[0];
         if (!STUBBED.has(name)) names.add(name);
       }
+  for (const name of UNSEEN_SERVER_PACKAGES) names.add(name);
   return [...names].sort();
 }
 

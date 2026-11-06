@@ -97,7 +97,8 @@ test('server packages skip node builtins and the three stubbed build packages', 
       },
     },
   });
-  assert.deepEqual(names, ['@mapbox/vector-tile', 'pbf']);
+  // ws is loaded with createRequire, out of esbuild's sight: always listed.
+  assert.deepEqual(names, ['@mapbox/vector-tile', 'pbf', 'ws']);
 });
 
 test('the light package for an older host declares no server and no server:run', () => {
