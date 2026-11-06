@@ -29,13 +29,13 @@ export const PHRASES = {
     zh: '许可窗口已打开：在那里接受后即可显示海缆。',
   },
   hubNoServer: {
-    en: 'Unavailable in the Hub install: this layer needs God’s Eye View’s own server, which runs only from its source folder.',
-    fr: 'Indisponible dans l’installation Hub : cette couche a besoin du serveur de God’s Eye View, qui ne tourne que depuis son dossier source.',
-    es: 'No disponible en la instalación del Hub: esta capa necesita el servidor propio de God’s Eye View, que solo funciona desde su carpeta de origen.',
-    de: 'In der Hub-Installation nicht verfügbar: Diese Ebene braucht den eigenen Server von God’s Eye View, der nur aus seinem Quellordner läuft.',
-    pt: 'Indisponível na instalação do Hub: esta camada precisa do servidor próprio do God’s Eye View, que só funciona a partir da pasta de origem.',
-    ru: 'Недоступно в установке из Hub: этому слою нужен собственный сервер God’s Eye View, который работает только из папки с исходниками.',
-    zh: 'Hub 安装版中不可用：此图层需要 God’s Eye View 自带的服务器，它只能从源码文件夹运行。',
+    en: 'Coming with the next Mnemosyne OS update: this layer needs the app’s local server. Then allow it when the app opens, or in the store.',
+    fr: 'Arrive avec la prochaine mise à jour de Mnemosyne OS : cette couche a besoin du serveur local de l’app. Il suffira ensuite de l’autoriser à l’ouverture, ou dans le store.',
+    es: 'Llega con la próxima actualización de Mnemosyne OS: esta capa necesita el servidor local de la app. Después basta con permitirlo al abrirla, o en la tienda.',
+    de: 'Kommt mit dem nächsten Mnemosyne-OS-Update: Diese Ebene braucht den lokalen Server der App. Danach beim Öffnen oder im Store erlauben.',
+    pt: 'Chega com a próxima atualização do Mnemosyne OS: esta camada precisa do servidor local do app. Depois basta permitir ao abrir, ou na loja.',
+    ru: 'Появится со следующим обновлением Mnemosyne OS: этому слою нужен локальный сервер приложения. Затем разрешите его при открытии или в магазине.',
+    zh: '将随下一次 Mnemosyne OS 更新提供：此图层需要应用的本地服务器。届时在打开应用时或在商店中允许即可。',
   },
 };
 /** A bridge sentence in the host's language; an unknown language falls back to English. */
@@ -150,6 +150,12 @@ export const UI_TEXT = {
     es: 'Entrar en la cabina 3D de un avión en vuelo, o salir',
   },
   live: { en: 'Live', fr: 'En direct', es: 'En directo' },
+  hubLimitedNotice: {
+    en: 'Limited version: the live layers (planes, cameras, weather) come with the next Mnemosyne OS update. It is coming out very soon.',
+    fr: 'Version limitée : les couches en direct (avions, caméras, météo) arrivent avec la prochaine mise à jour de Mnemosyne OS. Elle sort très bientôt.',
+    es: 'Versión limitada: las capas en directo (aviones, cámaras, tiempo) llegan con la próxima actualización de Mnemosyne OS. Sale muy pronto.',
+  },
+  hubLimitedClose: { en: 'Close', fr: 'Fermer', es: 'Cerrar' },
   cockpit: { en: 'Cockpit', fr: 'Cockpit', es: 'Cabina' },
   memoryTitle: {
     en: 'Ask your Mnemosyne OS memory, or pin this view into it',

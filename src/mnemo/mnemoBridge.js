@@ -89,6 +89,15 @@ function sensationalLayerIds() {
 
 /** Re-apply bar labels after the host language (or assistant name) changes. */
 function refreshBridgeChrome() {
+  const notice = document.getElementById('mnemo-hub-notice');
+  if (notice) {
+    for (const el of notice.querySelectorAll('[data-mnemo-label]'))
+      el.textContent = ui(el.getAttribute('data-mnemo-label'));
+    for (const el of notice.querySelectorAll('[data-mnemo-title]')) {
+      el.title = ui(el.getAttribute('data-mnemo-title'));
+      el.setAttribute('aria-label', el.title);
+    }
+  }
   const root = document.getElementById('mnemo-argus-bridge');
   if (!root) return;
   for (const el of root.querySelectorAll('[data-mnemo-title]')) {
@@ -550,6 +559,44 @@ const logged = (name, fn) => async (ev) => {
   }
 };
 
+/** Set once the person closed the « limited version » notice. */
+const HUB_NOTICE_DISMISSED_KEY = 'mnemo.gev.hubLimitedNotice.dismissed.v1';
+
+function hubNoticeDismissed() {
+  try {
+    return localStorage.getItem(HUB_NOTICE_DISMISSED_KEY) === '1';
+  } catch (err) {
+    console.warn('[gods-eye-view] notice state unreadable, showing it:', err);
+    return false;
+  }
+}
+
+/**
+ * A Hub install runs on static files: until a Mnemosyne OS that runs the
+ * app's own server (doc 201) is out and allowed, the /api layers are greyed.
+ * One line above the bar says so, once, until the person closes it. A sibling
+ * of the bar, not a child: the bar scrolls sideways and would clip it.
+ */
+function mountHubLimitedNotice() {
+  if (!isCartridgeInstall() || hubNoticeDismissed()) return;
+  const notice = document.createElement('div');
+  notice.id = 'mnemo-hub-notice';
+  notice.setAttribute('role', 'status');
+  notice.innerHTML = `
+    <span data-mnemo-label="hubLimitedNotice">${ui('hubLimitedNotice')}</span>
+    <button type="button" class="mnemo-hub-notice-close" data-mnemo-title="hubLimitedClose" title="${ui('hubLimitedClose')}" aria-label="${ui('hubLimitedClose')}">×</button>
+  `;
+  notice.querySelector('button')?.addEventListener('click', () => {
+    notice.remove();
+    try {
+      localStorage.setItem(HUB_NOTICE_DISMISSED_KEY, '1');
+    } catch (err) {
+      console.warn('[gods-eye-view] notice closed for this session only:', err);
+    }
+  });
+  document.body.appendChild(notice);
+}
+
 function mountMnemoHudOverlay() {
   if (document.getElementById('mnemo-argus-bridge')) return;
 
@@ -574,6 +621,38 @@ function mountMnemoHudOverlay() {
     /* Liquid glass, one line, icons with short words (style-cartouche):
        what is ON is green with a check dot, the orb is the green-tinted main
        action. Every colour is a token on the bar, so the modal keeps its own. */
+    #mnemo-hub-notice {
+      position: fixed;
+      bottom: 68px;
+      z-index: 9500;
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: min(560px, calc(100vw - 32px));
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 8px 14px;
+      border-radius: 12px;
+      background: color-mix(in srgb, #0b1220 82%, transparent);
+      border: 1px solid color-mix(in srgb, #fff 16%, transparent);
+      color: #e8eef6;
+      font-size: 12.5px;
+      line-height: 1.4;
+      backdrop-filter: blur(14px);
+      pointer-events: auto;
+    }
+    #mnemo-hub-notice .mnemo-hub-notice-close {
+      flex: none;
+      background: transparent;
+      border: 0;
+      color: #93a3b8;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+    #mnemo-hub-notice .mnemo-hub-notice-close:hover { color: #e8eef6; }
     #mnemo-argus-bridge {
       --mb-fill: color-mix(in srgb, #fff 7%, transparent);
       --mb-fill-hover: color-mix(in srgb, #fff 13%, transparent);
@@ -853,6 +932,7 @@ function mountMnemoHudOverlay() {
     }
   `;
   document.body.appendChild(bar);
+  mountHubLimitedNotice();
 
   const backdrop = document.createElement('div');
   backdrop.id = 'mnemo-argus-modal-backdrop';
