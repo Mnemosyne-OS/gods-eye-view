@@ -18,6 +18,11 @@ import {
   isCableLicenseAccepted,
   setCableLicenseAccepted,
 } from './cableLicence.js';
+import {
+  createCableLicenceGuard,
+  installCableLicenceGuard,
+} from './cableLayerGate.js';
+import { LayerLifecycle } from '../data/lifecycle.js';
 
 // Must equal `name` in mnemo-plugin.json: the host drops every message whose
 // pluginId differs from the id it registered (usePluginBridge.ts).
@@ -228,6 +233,18 @@ function normalizeFlyToArgs(params = {}) {
 // table here drifted: it sent "cables" to a layer id that never existed.
 const LAYER_ALIASES = voiceLayerAliasMap();
 const CABLES_LAYER_ID = 'telegeography-submarine-cables';
+
+/** Set when the guard refused the cables before the licence window existed. */
+let licenceWindowPending = false;
+
+/** Opens the licence window now, or as soon as the bar mounts it. */
+function openLicenceWindowSoon() {
+  if (typeof window.__mnemoOpenLicenseModal === 'function') {
+    window.__mnemoOpenLicenseModal('cables');
+  } else {
+    licenceWindowPending = true;
+  }
+}
 
 function normalizeLayerId(id) {
   const clean = String(id || '')
@@ -924,6 +941,10 @@ function mountMnemoHudOverlay() {
       }),
     );
   };
+  if (licenceWindowPending) {
+    licenceWindowPending = false;
+    window.__mnemoOpenLicenseModal('cables');
+  }
 
   function openMemoryModal(initialQuery = '', initialAnswer = null) {
     backdrop.innerHTML = `
@@ -972,8 +993,7 @@ function mountMnemoHudOverlay() {
           renderAnswer(answerText(await sdk.query(q)));
         } catch (err) {
           console.warn('[gods-eye-view] memory query failed:', err);
-          if (listEl)
-            setText(listEl, `${ui('error')}${err?.message || err}`);
+          if (listEl) setText(listEl, `${ui('error')}${err?.message || err}`);
         }
       });
     document
@@ -1039,7 +1059,9 @@ function mountMnemoHudOverlay() {
         console.info(
           '[gods-eye-view] Hub Live enables',
           lids.join(', '),
-          skipped.length ? `(still no host proxy for ${skipped.join(', ')})` : '',
+          skipped.length
+            ? `(still no host proxy for ${skipped.join(', ')})`
+            : '',
         );
       }
       for (const lid of lids) {
@@ -1152,6 +1174,16 @@ export function initMnemoBridge() {
 }
 
 function startMnemoBridge() {
+  // Before the application is created: the guard must be on the layer
+  // manager when its registry is sealed, ahead of the saved view's restore.
+  installCableLicenceGuard(
+    LayerLifecycle,
+    createCableLicenceGuard({
+      isAccepted: isCableLicenseAccepted,
+      onRefused: openLicenceWindowSoon,
+      reason: () => phrase('licenceWindow', hostLang),
+    }),
+  );
   // Suppress blocking first-run modal so the 3D globe and HUD appear immediately
   try {
     sessionStorage.setItem('gev:first-run-mission-session:v1', '1');
