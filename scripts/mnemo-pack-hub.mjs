@@ -87,6 +87,8 @@ export function installManifest(manifest) {
       ...(manifest.entrypoints ?? {}),
       renderer: 'index.html',
       server: SERVER_ENTRY,
+      // The dev server's port: same origin, same localStorage as a linked copy.
+      serverPort: 5239,
     },
     permissions: [...permissions],
   };
