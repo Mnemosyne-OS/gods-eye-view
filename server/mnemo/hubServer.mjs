@@ -41,6 +41,7 @@ export const STUB_SOURCES = Object.freeze({
     '  const prefixes = Array.isArray(prefix) ? prefix : [prefix];',
     '  for (const name of [".env", ".env.local", `.env.${mode}`, `.env.${mode}.local`]) {',
     '    let text;',
+    // A missing .env file is the normal case, like Vite: nothing to read.
     '    try { text = fs.readFileSync(path.join(root, name), "utf8"); } catch { continue; }',
     '    for (const line of text.split(/\\r?\\n/)) {',
     '      const m = /^\\s*(?:export\\s+)?([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*)?\\s*$/.exec(line);',
@@ -164,7 +165,12 @@ export function createStaticHandler(distDir) {
     let pathname;
     try {
       pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    } catch {
+    } catch (err) {
+      console.warn(
+        '[gev-hub-server] unreadable path, left to the next handler:',
+        req.url,
+        err?.message,
+      );
       return next();
     }
     if (pathname.startsWith('/api/') || pathname === '/api') return next();
@@ -201,7 +207,10 @@ export function createStaticHandler(distDir) {
 function statOrNull(file) {
   try {
     return fs.statSync(file);
-  } catch {
+  } catch (err) {
+    // A missing file is a 404 to come; anything else is worth a line.
+    if (err?.code !== 'ENOENT' && err?.code !== 'ENOTDIR')
+      console.warn('[gev-hub-server] cannot stat', file, err);
     return null;
   }
 }
@@ -276,7 +285,11 @@ async function main() {
   httpServer.listen(port, '127.0.0.1', () => {
     console.log(`${READY_PREFIX}http://127.0.0.1:${port}`);
   });
-  const stop = () => httpServer.close(() => process.exit(0));
+  // A keep-alive connection can hold close() open: leave anyway after 2 s.
+  const stop = () => {
+    setTimeout(() => process.exit(0), 2000).unref();
+    httpServer.close(() => process.exit(0));
+  };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
   // The host keeps a pipe on stdin; when the host goes away, so does this server.

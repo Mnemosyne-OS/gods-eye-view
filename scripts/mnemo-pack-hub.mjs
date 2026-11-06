@@ -33,7 +33,7 @@ const STUBBED = new Set(['vite', 'vite-plugin-cesium', '@vitejs/plugin-vue']);
 // Windows' own bsdtar reads C:\ paths; Git Bash's tar takes "C:" for a host.
 const TAR =
   process.platform === 'win32'
-    ? path.join(process.env.SystemRoot || 'C:\Windows', 'System32', 'tar.exe')
+    ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe')
     : 'tar';
 const DROP_DIRS = [
   'docs',
