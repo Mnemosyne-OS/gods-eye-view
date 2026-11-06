@@ -5,6 +5,7 @@ import {
   keptByServer,
   serverFileSet,
   serverPackages,
+  staticManifest,
 } from './mnemo-pack-hub.mjs';
 
 const SOURCES = {
@@ -97,4 +98,16 @@ test('server packages skip node builtins and the three stubbed build packages', 
     },
   });
   assert.deepEqual(names, ['@mapbox/vector-tile', 'pbf']);
+});
+
+test('the light package for an older host declares no server and no server:run', () => {
+  const full = installManifest({
+    version: '0.4.0',
+    entrypoints: { renderer: 'http://localhost:5239/index.html' },
+    permissions: ['vault:read'],
+  });
+  const light = staticManifest(full);
+  assert.deepEqual(light.entrypoints, { renderer: 'index.html' });
+  assert.deepEqual(light.permissions, ['vault:read']);
+  assert.equal(light.version, '0.4.0');
 });

@@ -15,7 +15,8 @@
  * 4. Rewrites the manifest for an install: renderer `index.html` (the host's
  *    mnemo-plugin:// protocol), `entrypoints.server` (run by the host with
  *    its own Electron binary once the person grants `server:run`).
- * 5. Writes cartridge.tgz and prints its sha256.
+ * 5. Writes cartridge-server.tgz (with the server) and cartridge.tgz (the
+ *    light page an older Mnemosyne OS installs), each with its sha256.
  * --keep-stage leaves the staged folder in place (to compare it with another).
  * --smoke starts the staged server on a free port and checks the page and a
  * weather manifest answer before packing.
@@ -124,6 +125,36 @@ export function keptByServer(rel, { files, dirs }) {
   for (const dir of dirs)
     if (rel === dir || rel.startsWith(`${dir}/`)) return true;
   return false;
+}
+
+/**
+ * The two release assets. A Mnemosyne OS that can run an app's server
+ * (doc 201) takes `cartridge-server.tgz`; an older one only knows
+ * `cartridge.tgz` and gets the light page, whose /api layers are greyed.
+ */
+export const SERVER_ASSET = 'cartridge-server.tgz';
+export const LIGHT_ASSET = 'cartridge.tgz';
+const LIGHT_FILES = Object.freeze([
+  'dist',
+  'icon.svg',
+  'LICENSE',
+  'README.md',
+  'THIRD_PARTY_NOTICES.md',
+  'DATA_SOURCES.md',
+]);
+
+/** The light package's manifest: static renderer, no server, no server:run. */
+export function staticManifest(manifest) {
+  const {
+    server: _server,
+    serverPort: _port,
+    ...entrypoints
+  } = manifest.entrypoints ?? {};
+  return {
+    ...manifest,
+    entrypoints: { ...entrypoints, renderer: 'index.html' },
+    permissions: (manifest.permissions ?? []).filter((p) => p !== 'server:run'),
+  };
 }
 
 /** The manifest an install needs: static renderer, declared server. */
@@ -314,19 +345,39 @@ async function main() {
   if (args.includes('--smoke')) await smoke(stage);
 
   fs.mkdirSync(outDir, { recursive: true });
-  const out = path.join(outDir, 'cartridge.tgz');
-  run(TAR, ['-czf', out, '-C', stage, '.']);
-  const sha256 = createHash('sha256')
-    .update(fs.readFileSync(out))
-    .digest('hex');
-  if (args.includes('--keep-stage'))
-    console.log(`[pack-hub] stage kept: ${stage}`);
-  else fs.rmSync(stage, { recursive: true, force: true });
+  // The light package an older Mnemosyne OS installs: the page alone, no
+  // server declared. Same release, so the same version on both.
+  const light = fs.mkdtempSync(path.join(os.tmpdir(), 'gev-hub-light-'));
+  for (const name of LIGHT_FILES)
+    if (fs.existsSync(path.join(stage, name)))
+      fs.cpSync(path.join(stage, name), path.join(light, name), {
+        recursive: true,
+      });
+  fs.writeFileSync(
+    path.join(light, 'mnemo-plugin.json'),
+    `${JSON.stringify(staticManifest(manifest), null, 2)}
+`,
+  );
+  const packs = [
+    [SERVER_ASSET, stage],
+    [LIGHT_ASSET, light],
+  ];
   console.log(
     `[pack-hub] version ${manifest.version}, HEAD ${head.slice(0, 8)}`,
   );
-  console.log(`[pack-hub] file    ${out} (${fs.statSync(out).size} bytes)`);
-  console.log(`[pack-hub] sha256  ${sha256}`);
+  for (const [name, dir] of packs) {
+    const out = path.join(outDir, name);
+    run(TAR, ['-czf', out, '-C', dir, '.']);
+    const sha256 = createHash('sha256')
+      .update(fs.readFileSync(out))
+      .digest('hex');
+    console.log(`[pack-hub] file    ${out} (${fs.statSync(out).size} bytes)`);
+    console.log(`[pack-hub] sha256  ${sha256}`);
+  }
+  fs.rmSync(light, { recursive: true, force: true });
+  if (args.includes('--keep-stage'))
+    console.log(`[pack-hub] stage kept: ${stage}`);
+  else fs.rmSync(stage, { recursive: true, force: true });
 }
 
 if (
