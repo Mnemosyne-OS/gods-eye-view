@@ -2,7 +2,7 @@
   "id": "@mnemosyne-plugins/mnemo-gods-eye-view",
   "name": "@mnemosyne-plugins/mnemo-gods-eye-view",
   "displayName": "God's Eye View",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "category": "Intelligence",
   "vendor": "Bilawal Sidhu (MIT)",
   "license": "MIT",

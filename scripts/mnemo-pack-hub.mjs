@@ -16,6 +16,7 @@
  *    mnemo-plugin:// protocol), `entrypoints.server` (run by the host with
  *    its own Electron binary once the person grants `server:run`).
  * 5. Writes cartridge.tgz and prints its sha256.
+ * --keep-stage leaves the staged folder in place (to compare it with another).
  * --smoke starts the staged server on a free port and checks the page and a
  * weather manifest answer before packing.
  */
@@ -77,6 +78,54 @@ export function serverPackages(metafile) {
   return [...names].sort();
 }
 
+/** Folders of runtime code the release keeps only the server's part of. */
+export const PRUNED_DIRS = Object.freeze(['src', 'scripts', 'build']);
+
+/**
+ * What the server actually loads from the checkout, measured: every module
+ * esbuild followed from the entry, every file a kept module names with
+ * `new URL('…', import.meta.url)`, and every `local_data/<set>` folder a
+ * kept module names. The page needs none of it: dist/ already carries its
+ * own copy of what it imports.
+ * @param {{ inputs: Record<string, unknown> }} metafile esbuild metafile, paths relative to `root`.
+ * @param {(rel: string) => string} readSource reads a kept module's text.
+ * @returns {{ files: Set<string>, dirs: Set<string> }} posix paths relative to root.
+ */
+export function serverFileSet(metafile, readSource) {
+  const files = new Set();
+  const dirs = new Set();
+  for (const rel of Object.keys(metafile.inputs)) {
+    if (rel.includes('node_modules/') || rel.startsWith('<')) continue;
+    files.add(rel);
+    let text;
+    try {
+      text = readSource(rel);
+    } catch (err) {
+      console.warn(`[pack-hub] cannot read ${rel} to look for its data:`, err);
+      continue;
+    }
+    for (const m of text.matchAll(/local_data\/([A-Za-z0-9_-]+)/g))
+      dirs.add(`src/data/local_data/${m[1]}`);
+    for (const m of text.matchAll(
+      /new URL\(\s*['"`]([^'"`$]+)['"`]\s*,\s*import\.meta\.url\s*\)/g,
+    )) {
+      const target = path.posix.normalize(
+        path.posix.join(path.posix.dirname(rel), m[1]),
+      );
+      if (!target.startsWith('..')) dirs.add(target.replace(/\/$/, ''));
+    }
+  }
+  return { files, dirs };
+}
+
+/** True when a posix path is a kept file, or sits inside a kept folder. */
+export function keptByServer(rel, { files, dirs }) {
+  if (files.has(rel)) return true;
+  for (const dir of dirs)
+    if (rel === dir || rel.startsWith(`${dir}/`)) return true;
+  return false;
+}
+
 /** The manifest an install needs: static renderer, declared server. */
 export function installManifest(manifest) {
   const permissions = new Set(manifest.permissions ?? []);
@@ -115,6 +164,14 @@ function freePort() {
   });
 }
 
+/** Routes that answer 200 with no key: the page, weather, flights, wind status. */
+const SMOKE_ROUTES = Object.freeze([
+  '/',
+  '/api/weather/manifest?product=radar',
+  '/api/flights',
+  '/api/wind/status',
+]);
+
 async function smoke(stage) {
   const port = await freePort();
   const child = spawn(
@@ -140,7 +197,7 @@ async function smoke(stage) {
       });
       child.once('exit', (code) => reject(new Error(`server exited ${code}`)));
     });
-    for (const route of ['/', '/api/weather/manifest?product=radar']) {
+    for (const route of SMOKE_ROUTES) {
       const res = await fetch(`http://127.0.0.1:${port}${route}`, {
         signal: AbortSignal.timeout(30_000),
       });
@@ -183,6 +240,7 @@ async function main() {
     (await import('esbuild')).default ?? (await import('esbuild'));
   const result = await esbuild.build({
     entryPoints: [path.join(ROOT, SERVER_ENTRY)],
+    absWorkingDir: ROOT,
     bundle: true,
     platform: 'node',
     format: 'esm',
@@ -191,6 +249,28 @@ async function main() {
     write: false,
     logLevel: 'error',
   });
+
+  // Only what the server loads stays in src/, scripts/ and build/; public/
+  // is already copied into dist/ by the build.
+  const keep = serverFileSet(result.metafile, (rel) =>
+    fs.readFileSync(path.join(ROOT, rel), 'utf8'),
+  );
+  let pruned = 0;
+  for (const top of PRUNED_DIRS) {
+    const dir = path.join(stage, top);
+    if (!fs.existsSync(dir)) continue;
+    walk(dir, (file) => {
+      const rel = path.relative(stage, file).split(path.sep).join('/');
+      if (!keptByServer(rel, keep)) {
+        fs.rmSync(file);
+        pruned += 1;
+      }
+    });
+  }
+  fs.rmSync(path.join(stage, 'public'), { recursive: true, force: true });
+  console.log(
+    `[pack-hub] kept ${keep.files.size} server modules and ${keep.dirs.size} data folders, dropped ${pruned} other files`,
+  );
   const lock = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'),
   );
@@ -239,7 +319,9 @@ async function main() {
   const sha256 = createHash('sha256')
     .update(fs.readFileSync(out))
     .digest('hex');
-  fs.rmSync(stage, { recursive: true, force: true });
+  if (args.includes('--keep-stage'))
+    console.log(`[pack-hub] stage kept: ${stage}`);
+  else fs.rmSync(stage, { recursive: true, force: true });
   console.log(
     `[pack-hub] version ${manifest.version}, HEAD ${head.slice(0, 8)}`,
   );
