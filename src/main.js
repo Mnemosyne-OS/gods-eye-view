@@ -5,9 +5,14 @@ import { initMnemoBridge } from './mnemo/mnemoBridge.js';
 
 initMnemoBridge();
 
+// The Vite boundary exposes only undefined, null, or a validated URL.
+const photonSetting = import.meta.env.PHOTON_URL;
+
 const application = createStandaloneApplication({
   googleApiKey: import.meta.env.GOOGLE_MAPS_API_KEY,
   cesiumToken: import.meta.env.CESIUM_ION_TOKEN,
+  geospatial:
+    photonSetting === undefined ? {} : { endpoints: { photon: photonSetting } },
   allowQaRegistration: import.meta.env.DEV,
 });
 
