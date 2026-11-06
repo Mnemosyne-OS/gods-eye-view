@@ -15,7 +15,7 @@
  * `loadEnv` reads `<root>/.env*` like Vite, so a person's own keys in the
  * install folder's `.env` reach the providers.
  *
- * Run: `node src/mnemo/hubServer.mjs --port 5239` (the host runs it with its
+ * Run: `node server/mnemo/hubServer.mjs --port 5239` (the host runs it with its
  * own Electron binary and ELECTRON_RUN_AS_NODE=1). Binds 127.0.0.1 only and
  * prints one ready line the host waits for.
  */
@@ -263,9 +263,8 @@ async function main() {
   process.env.NODE_ENV ??= 'production';
   installBuildStubs();
   const port = portFromArgv(process.argv);
-  const { default: mnemoConfig } = await import(
-    new URL('../../vite.mnemo.config.js', import.meta.url).href
-  );
+  // A literal specifier, loaded only once the build stubs are installed.
+  const { default: mnemoConfig } = await import('../../vite.mnemo.config.js');
   const env = { command: 'serve', mode: 'production', isPreview: true };
   const config =
     typeof mnemoConfig === 'function' ? await mnemoConfig(env) : mnemoConfig;
