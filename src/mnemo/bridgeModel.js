@@ -142,30 +142,36 @@ export const UI_TEXT = {
   },
   live: { en: 'Live', fr: 'En direct', es: 'En directo' },
   cockpit: { en: 'Cockpit', fr: 'Cockpit', es: 'Cabina' },
-  cablesTitle: {
-    en: 'Submarine cables (licence CC BY-NC-SA 3.0)',
-    fr: 'Câbles sous-marins (licence CC BY-NC-SA 3.0)',
-    es: 'Cables submarinos (licencia CC BY-NC-SA 3.0)',
-  },
-  cables: { en: 'Cables', fr: 'Câbles', es: 'Cables' },
   memoryTitle: {
     en: 'Ask your Mnemosyne OS memory, or pin this view into it',
     fr: 'Interroger ta mémoire Mnemosyne OS, ou y épingler cette vue',
     es: 'Preguntar a tu memoria de Mnemosyne OS, o fijar esta vista en ella',
   },
   memory: { en: 'Memory', fr: 'Mémoire', es: 'Memoria' },
-  orb: { en: 'Talk to the orb', fr: "Parler à l'orbe", es: 'Hablar con el orbe' },
-  orbNamed: { en: 'Talk to {name}', fr: 'Parler à {name}', es: 'Hablar con {name}' },
-  orbFailed: { en: 'Orb unavailable', fr: 'Orbe indisponible', es: 'Orbe no disponible' },
+  orb: {
+    en: 'Talk to the orb',
+    fr: "Parler à l'orbe",
+    es: 'Hablar con el orbe',
+  },
+  orbNamed: {
+    en: 'Talk to {name}',
+    fr: 'Parler à {name}',
+    es: 'Hablar con {name}',
+  },
+  orbFailed: {
+    en: 'Orb unavailable',
+    fr: 'Orbe indisponible',
+    es: 'Orbe no disponible',
+  },
   orbFailedTitle: {
     en: 'This version of Mnemosyne OS cannot call the orb from an app yet. Use the orb button on the rail.',
     fr: "Cette version de Mnemosyne OS ne sait pas encore appeler l'orbe depuis une app. Utilise le bouton de l'orbe dans le rail.",
     es: 'Esta versión de Mnemosyne OS aún no puede llamar al orbe desde una app. Usa el botón del orbe en la barra.',
   },
   orbNoBoardTitle: {
-    en: 'This window has no board for the orb. Put God\'s Eye View back on the board, or use the orb button on the rail.',
+    en: "This window has no board for the orb. Put God's Eye View back on the board, or use the orb button on the rail.",
     fr: "Cette fenêtre n'a pas de plateau pour l'orbe. Remets God's Eye View sur le plateau, ou utilise le bouton de l'orbe dans le rail.",
-    es: 'Esta ventana no tiene tablero para el orbe. Vuelve a poner God\'s Eye View en el tablero, o usa el botón del orbe en la barra.',
+    es: "Esta ventana no tiene tablero para el orbe. Vuelve a poner God's Eye View en el tablero, o usa el botón del orbe en la barra.",
   },
   orbNoGestureTitle: {
     en: 'The orb comes on a click on this button.',
@@ -289,7 +295,9 @@ export function isFramedByHost(win) {
  */
 export function orbLabel(name, lang = 'en') {
   const clean = typeof name === 'string' ? name.trim().slice(0, 40) : '';
-  return clean ? uiText('orbNamed', lang).replace('{name}', clean) : uiText('orb', lang);
+  return clean
+    ? uiText('orbNamed', lang).replace('{name}', clean)
+    : uiText('orb', lang);
 }
 
 /**

@@ -494,7 +494,6 @@ function registerMnemoAgentDoor() {
     acceptLicensePack: async (params = {}) => {
       if (params.accept === false) {
         setCableLicenseAccepted(false);
-        window.__mnemoSyncLicenseUi?.();
         await runGevTool('set_layer_visibility', {
           layerId: CABLES_LAYER_ID,
           enabled: false,
@@ -846,9 +845,6 @@ function mountMnemoHudOverlay() {
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cockpit" data-mnemo-title="cockpitTitle" title="${ui('cockpitTitle')}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg><span data-mnemo-label="cockpit">${ui('cockpit')}</span>
     </button>
-    <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-cables" data-mnemo-title="cablesTitle" title="${ui('cablesTitle')}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15c3 0 3-6 6-6s3 6 6 6 3-6 6-6"/><path d="M3 20h18"/></svg><span data-mnemo-label="cables">${ui('cables')}</span>
-    </button>
     <button type="button" class="mnemo-bridge-btn" id="mnemo-btn-memory" data-mnemo-title="memoryTitle" title="${ui('memoryTitle')}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h1V3z"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3h-1V3z"/></svg><span data-mnemo-label="memory">${ui('memory')}</span>
     </button>
@@ -875,18 +871,6 @@ function mountMnemoHudOverlay() {
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) closeModal();
   });
-
-  function syncLicenseUi() {
-    const btn = document.getElementById('mnemo-btn-cables');
-    if (!btn) return;
-    if (isCableLicenseAccepted()) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  }
-  window.__mnemoSyncLicenseUi = syncLicenseUi;
-  syncLicenseUi();
 
   window.__mnemoOpenLicenseModal = () => {
     const accepted = isCableLicenseAccepted();
@@ -920,7 +904,6 @@ function mountMnemoHudOverlay() {
       'click',
       logged('licence accept', async () => {
         setCableLicenseAccepted(true);
-        syncLicenseUi();
         closeModal();
         await runGevTool('set_layer_visibility', {
           layerId: CABLES_LAYER_ID,
@@ -932,7 +915,6 @@ function mountMnemoHudOverlay() {
       'click',
       logged('licence revoke', async () => {
         setCableLicenseAccepted(false);
-        syncLicenseUi();
         closeModal();
         await runGevTool('set_layer_visibility', {
           layerId: CABLES_LAYER_ID,
@@ -1022,10 +1004,6 @@ function mountMnemoHudOverlay() {
   }
 
   window.__mnemoShowMemoryResults = (q, hits) => openMemoryModal(q, hits);
-
-  document.getElementById('mnemo-btn-cables')?.addEventListener('click', () => {
-    window.__mnemoOpenLicenseModal?.('cables');
-  });
 
   const orbBtn = document.getElementById('mnemo-voice-orb');
   orbBtn?.addEventListener('click', async () => {
