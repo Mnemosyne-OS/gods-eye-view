@@ -22,6 +22,7 @@ import {
   createCableLicenceGuard,
   installCableLicenceGuard,
 } from './cableLayerGate.js';
+import { installHubApiLayerGate } from './hubApiLayerGate.js';
 import { LayerLifecycle } from '../data/lifecycle.js';
 
 // Must equal `name` in mnemo-plugin.json: the host drops every message whose
@@ -64,7 +65,7 @@ let hostLang = initialBridgeLang({
 /** The assistant's given name, from the host's MNEMO_CONFIG_UPDATE; null until it says. */
 let assistantName = null;
 
-/** Layers that need a server `/api` proxy (Vite in dev, host under Hub). */
+/** Live layers that need GEV's own `/api` server (Vite in development). */
 const API_BACKED_SENSATIONAL_LAYERS = Object.freeze([
   'flights',
   'military',
@@ -72,23 +73,17 @@ const API_BACKED_SENSATIONAL_LAYERS = Object.freeze([
   'cctv',
 ]);
 
-/**
- * Live layers the infinity-edition host proxies for Hub installs
- * (`mnemo-plugin://` → main `cartridgeApiProxy`). military stays off until
- * its routes are proxied too. cctv joined in lot 2 (Austin catalog + frames).
- */
-const HUB_PROXIED_SENSATIONAL_LAYERS = Object.freeze([
-  'flights',
-  'satellites',
-  'cctv',
-]);
-
 /** Layers the Live pack can turn on without a local API server. */
 const KEYLESS_SENSATIONAL_LAYERS = Object.freeze(['earthquakes']);
 
+/**
+ * A Hub install (`mnemo-plugin://`) has no `/api` server and no host proxy
+ * for one: it gets only the keyless layers, the others are greyed by
+ * hubApiLayerGate.js with the reason.
+ */
 function sensationalLayerIds() {
   return isCartridgeInstall()
-    ? [...HUB_PROXIED_SENSATIONAL_LAYERS, ...KEYLESS_SENSATIONAL_LAYERS]
+    ? [...KEYLESS_SENSATIONAL_LAYERS]
     : [...API_BACKED_SENSATIONAL_LAYERS, ...KEYLESS_SENSATIONAL_LAYERS];
 }
 
@@ -1031,15 +1026,10 @@ function mountMnemoHudOverlay() {
     logged('live pack', async () => {
       const lids = sensationalLayerIds();
       if (isCartridgeInstall()) {
-        const skipped = API_BACKED_SENSATIONAL_LAYERS.filter(
-          (id) => !lids.includes(id),
-        );
         console.info(
           '[gods-eye-view] Hub Live enables',
           lids.join(', '),
-          skipped.length
-            ? `(still no host proxy for ${skipped.join(', ')})`
-            : '',
+          `(no /api server for ${API_BACKED_SENSATIONAL_LAYERS.join(', ')})`,
         );
       }
       for (const lid of lids) {
@@ -1079,8 +1069,8 @@ function mountMnemoHudOverlay() {
 
 /**
  * Auto-activate sensational feeds on first launch inside Mnemosyne OS.
- * Hub installs (`mnemo-plugin://`) get host-proxied flights/satellites/cctv
- * plus keyless earthquakes; military still needs routes the host does not proxy.
+ * Hub installs (`mnemo-plugin://`) get keyless earthquakes only: they have no
+ * `/api` server for flights, military, satellites or cctv.
  */
 async function autoBootSensationalFeeds() {
   try {
@@ -1162,6 +1152,12 @@ function startMnemoBridge() {
       reason: () => phrase('licenceWindow', hostLang),
     }),
   );
+  // Same moment: a Hub install has no /api server, its server-backed layers
+  // are greyed with the reason instead of turning on into HTTP 404.
+  installHubApiLayerGate(LayerLifecycle, {
+    isHub: () => isCartridgeInstall(),
+    reason: () => phrase('hubNoServer', hostLang),
+  });
   // Suppress blocking first-run modal so the 3D globe and HUD appear immediately
   try {
     sessionStorage.setItem('gev:first-run-mission-session:v1', '1');

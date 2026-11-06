@@ -38,22 +38,43 @@ export function createCableLicenceGuard({ isAccepted, onRefused, reason }) {
  * @returns {boolean} false when the class no longer has the seam this needs.
  */
 export function installCableLicenceGuard(LifecycleClass, guard) {
+  return installLifecycleGuard(LifecycleClass, guard, {
+    marker: '__mnemoCableGuardInstalled',
+    whatIsLost: 'the cable licence is NOT enforced on the layer panel',
+  });
+}
+
+/**
+ * Adds a visibility guard to every LayerLifecycle when its registry is
+ * sealed. Installed once per class and marker, so each Mnemosyne guard can
+ * ride the same seam without stacking twice.
+ * @param {{ prototype: { finalizeRegistrations: Function, addVisibilityGuard?: Function } }} LifecycleClass
+ * @param {(change: object) => (string|null)} guard
+ * @param {{ marker: string, whatIsLost: string }} options marker is the
+ *   prototype flag; whatIsLost names, in the error, what stops being enforced.
+ * @returns {boolean} false when the class no longer has the seam this needs.
+ */
+export function installLifecycleGuard(
+  LifecycleClass,
+  guard,
+  { marker, whatIsLost },
+) {
   const proto = LifecycleClass?.prototype;
   if (
     typeof proto?.finalizeRegistrations !== 'function' ||
     typeof proto?.addVisibilityGuard !== 'function'
   ) {
     console.error(
-      '[gods-eye-view] LayerLifecycle has no finalizeRegistrations/addVisibilityGuard: the cable licence is NOT enforced on the layer panel',
+      `[gods-eye-view] LayerLifecycle has no finalizeRegistrations/addVisibilityGuard: ${whatIsLost}`,
     );
     return false;
   }
-  if (proto.__mnemoCableGuardInstalled) return true;
+  if (proto[marker]) return true;
   const finalize = proto.finalizeRegistrations;
-  proto.finalizeRegistrations = function finalizeWithCableGuard(...args) {
+  proto.finalizeRegistrations = function finalizeWithMnemoGuard(...args) {
     this.addVisibilityGuard(guard);
     return finalize.apply(this, args);
   };
-  Object.defineProperty(proto, '__mnemoCableGuardInstalled', { value: true });
+  Object.defineProperty(proto, marker, { value: true });
   return true;
 }

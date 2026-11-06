@@ -28,6 +28,15 @@ export const PHRASES = {
     ru: 'Окно лицензии открыто: примите её, чтобы показать кабели.',
     zh: '许可窗口已打开：在那里接受后即可显示海缆。',
   },
+  hubNoServer: {
+    en: 'Unavailable in the Hub install: this layer needs God’s Eye View’s own server, which runs only from its source folder.',
+    fr: 'Indisponible dans l’installation Hub : cette couche a besoin du serveur de God’s Eye View, qui ne tourne que depuis son dossier source.',
+    es: 'No disponible en la instalación del Hub: esta capa necesita el servidor propio de God’s Eye View, que solo funciona desde su carpeta de origen.',
+    de: 'In der Hub-Installation nicht verfügbar: Diese Ebene braucht den eigenen Server von God’s Eye View, der nur aus seinem Quellordner läuft.',
+    pt: 'Indisponível na instalação do Hub: esta camada precisa do servidor próprio do God’s Eye View, que só funciona a partir da pasta de origem.',
+    ru: 'Недоступно в установке из Hub: этому слою нужен собственный сервер God’s Eye View, который работает только из папки с исходниками.',
+    zh: 'Hub 安装版中不可用：此图层需要 God’s Eye View 自带的服务器，它只能从源码文件夹运行。',
+  },
 };
 /** A bridge sentence in the host's language; an unknown language falls back to English. */
 export function phrase(key, lang = 'en') {
