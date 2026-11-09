@@ -6,7 +6,7 @@ import {
   serverFileSet,
   serverPackages,
   staticManifest,
-} from './mnemo-pack-hub.mjs';
+} from '../../scripts/mnemo-pack-hub.mjs';
 
 const SOURCES = {
   'server/mnemo/hubServer.mjs': "await import('../../vite.mnemo.config.js');",
