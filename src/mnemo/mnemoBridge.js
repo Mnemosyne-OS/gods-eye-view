@@ -1,5 +1,5 @@
 import { MnemoCartridgeSDK } from '@mnemosyne_os/cartridge-sdk';
-import { getLocale } from '../i18n/index.js';
+import { getLocale, onLocaleChange } from '../i18n/index.js';
 import { voiceLayerAliasMap } from '../voice/layerManifest.js';
 import {
   bridgeUiLang,
@@ -63,6 +63,9 @@ let hostLang = initialBridgeLang({
   navigatorLanguage:
     typeof navigator !== 'undefined' ? navigator.language : undefined,
 });
+
+/** True once the host has sent a language: from then on it alone decides. */
+let langFromHost = false;
 
 /** The assistant's given name, from the host's MNEMO_CONFIG_UPDATE; null until it says. */
 let assistantName = null;
@@ -609,6 +612,17 @@ function mountMnemoHudOverlay() {
     appLocale: getLocale(),
     navigatorLanguage:
       typeof navigator !== 'undefined' ? navigator.language : undefined,
+  });
+  // The page locale is still the English default when the bar mounts: God's
+  // Eye View resolves it during its start. The bar painted English over a
+  // French globe (2026-11-24), so it follows each locale change until the
+  // host has sent its own language.
+  onLocaleChange(() => {
+    if (langFromHost) return;
+    const next = bridgeUiLang(getLocale());
+    if (next === hostLang) return;
+    hostLang = next;
+    refreshBridgeChrome();
   });
 
   // Inside Mnemosyne OS the microphone stays with the host (its frame only
@@ -1262,6 +1276,7 @@ function startMnemoBridge() {
     let chromeDirty = false;
     if (typeof event.data.lang === 'string' && event.data.lang) {
       const next = bridgeUiLang(event.data.lang);
+      langFromHost = true;
       if (next !== hostLang) {
         hostLang = next;
         chromeDirty = true;
