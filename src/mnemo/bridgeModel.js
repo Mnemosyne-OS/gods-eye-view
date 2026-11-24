@@ -59,6 +59,34 @@ export function checkedResult(res, actionName) {
   return res;
 }
 
+/**
+ * The HUD's Cockpit button. God's Eye View enters Cockpit only behind a
+ * tracked aircraft, so a press with none tracked was refused while the button
+ * lit up over an unchanged globe (2026-11-24). On that refusal the aircraft
+ * nearest the camera is tracked, then entry is asked once more.
+ * @param {(name: string, args: object) => Promise<any>} run one GEV voice tool
+ * @returns {Promise<any>} the last control_cockpit answer, `ok` false if refused
+ */
+export async function enterCockpitFromHud(run) {
+  const enter = () =>
+    run('control_cockpit', { action: 'enter', targetLayer: 'flights' });
+  const first = await enter();
+  if (first?.ok !== false) return first;
+  if (first?.state?.entryBlockedReason !== 'no-tracked-aircraft') return first;
+  const where = {};
+  const cam = (await run('get_current_view_state', {}))?.camera;
+  if (cam && Number.isFinite(cam.latitude) && Number.isFinite(cam.longitude)) {
+    where.latitude = cam.latitude;
+    where.longitude = cam.longitude;
+  }
+  const picked = await run('select_nearest_aircraft', {
+    layerId: 'flights',
+    ...where,
+  });
+  if (picked?.ok === false) return picked;
+  return enter();
+}
+
 /** More than a metre between two readings; unknown readings never count as moved. */
 export function cameraMoved(a, b) {
   return Boolean(a && b) && Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) > 1;

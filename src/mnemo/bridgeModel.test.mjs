@@ -10,6 +10,7 @@ import {
   cameraMoved,
   checkedResult,
   compactStatus,
+  enterCockpitFromHud,
   isFramedByHost,
   orbFailureKey,
   orbLabel,
@@ -175,8 +176,77 @@ test('the orb button says the name the person gave their assistant', () => {
 
 test('a refused orb.summon says its own next step', () => {
   assert.equal(orbFailureKey(new Error('ORB_UNHEARD')), 'orbNoBoardTitle');
-  assert.equal(orbFailureKey(new Error('NOT_FROM_A_GESTURE')), 'orbNoGestureTitle');
-  assert.equal(orbFailureKey(new Error('Host did not reply to "orb.summon" within 5s')), 'orbTimeoutTitle');
+  assert.equal(
+    orbFailureKey(new Error('NOT_FROM_A_GESTURE')),
+    'orbNoGestureTitle',
+  );
+  assert.equal(
+    orbFailureKey(new Error('Host did not reply to "orb.summon" within 5s')),
+    'orbTimeoutTitle',
+  );
   // Only a host without the action is « an older version ».
-  assert.equal(orbFailureKey(new Error('Action orb.summon is not supported or not permitted.')), 'orbFailedTitle');
+  assert.equal(
+    orbFailureKey(
+      new Error('Action orb.summon is not supported or not permitted.'),
+    ),
+    'orbFailedTitle',
+  );
+});
+
+function scriptedRun(answers) {
+  const calls = [];
+  const run = async (name, args) => {
+    calls.push([name, args]);
+    const queue = answers[name];
+    return Array.isArray(queue) ? queue.shift() : queue;
+  };
+  return { run, calls };
+}
+
+test('Cockpit from the HUD tracks the aircraft nearest the camera when none is tracked', async () => {
+  const { run, calls } = scriptedRun({
+    control_cockpit: [
+      { ok: false, state: { entryBlockedReason: 'no-tracked-aircraft' } },
+      { ok: true, action: 'control_cockpit' },
+    ],
+    get_current_view_state: { camera: { latitude: 51.5, longitude: -0.1 } },
+    select_nearest_aircraft: { ok: true },
+  });
+  const res = await enterCockpitFromHud(run);
+  assert.equal(res.ok, true);
+  assert.deepEqual(
+    calls.map(([name]) => name),
+    [
+      'control_cockpit',
+      'get_current_view_state',
+      'select_nearest_aircraft',
+      'control_cockpit',
+    ],
+  );
+  assert.deepEqual(calls[2][1], {
+    layerId: 'flights',
+    latitude: 51.5,
+    longitude: -0.1,
+  });
+});
+
+test('Cockpit from the HUD passes on a refusal it cannot fix, and asks only once more', async () => {
+  const other = {
+    ok: false,
+    state: { entryBlockedReason: 'contacts-starting' },
+  };
+  const a = scriptedRun({ control_cockpit: [other] });
+  assert.equal(await enterCockpitFromHud(a.run), other);
+  assert.equal(a.calls.length, 1);
+
+  const noPlane = { ok: false, error: 'no aircraft' };
+  const b = scriptedRun({
+    control_cockpit: [
+      { ok: false, state: { entryBlockedReason: 'no-tracked-aircraft' } },
+    ],
+    get_current_view_state: {},
+    select_nearest_aircraft: noPlane,
+  });
+  assert.equal(await enterCockpitFromHud(b.run), noPlane);
+  assert.equal(b.calls.filter(([n]) => n === 'control_cockpit').length, 1);
 });

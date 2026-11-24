@@ -6,6 +6,7 @@ import {
   cameraMoved,
   checkedResult,
   compactStatus,
+  enterCockpitFromHud,
   initialBridgeLang,
   isCartridgeInstall,
   isFramedByHost,
@@ -24,6 +25,7 @@ import {
 } from './cableLayerGate.js';
 import { installHubApiLayerGate } from './hubApiLayerGate.js';
 import { LayerLifecycle } from '../data/lifecycle.js';
+import { rememberFirstRunSessionDismissed } from '../firstRunExperience.js';
 
 // Must equal `name` in mnemo-plugin.json: the host drops every message whose
 // pluginId differs from the id it registered (usePluginBridge.ts).
@@ -1138,10 +1140,10 @@ function mountMnemoHudOverlay() {
         btn.classList.remove('active');
       } else {
         btn.classList.add('active');
-        await runGevTool('control_cockpit', {
-          action: 'enter',
-          targetLayer: 'flights',
-        });
+        const entered = await enterCockpitFromHud(runGevTool);
+        // A refusal (no aircraft near, flights still loading) left the button
+        // lit over an unchanged globe; the button now says what happened.
+        if (!entered?.ok) btn.classList.remove('active');
       }
     }),
   );
@@ -1238,9 +1240,11 @@ function startMnemoBridge() {
     isHub: () => isCartridgeInstall(),
     reason: () => phrase('hubNoServer', hostLang),
   });
-  // Suppress blocking first-run modal so the 3D globe and HUD appear immediately
+  // Suppress blocking first-run modal so the 3D globe and HUD appear immediately.
+  // Through God's Eye View's own writer: it reads the exact value 'dismissed',
+  // and the '1' written here by hand never hid the welcome card (2026-11-24).
   try {
-    sessionStorage.setItem('gev:first-run-mission-session:v1', '1');
+    rememberFirstRunSessionDismissed(sessionStorage);
   } catch (err) {
     // Storage blocked: the first-run modal shows, nothing else breaks.
     console.warn('[gods-eye-view] sessionStorage unavailable:', err);
